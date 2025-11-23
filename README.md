@@ -1,8 +1,10 @@
 # floxy
 
+![Go Version](https://img.shields.io/badge/Go-%3E=1.25-blue)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rom8726/floxy.svg)](https://pkg.go.dev/github.com/rom8726/floxy)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rom8726/floxy)](https://goreportcard.com/report/github.com/rom8726/floxy)
 [![Coverage Status](https://coveralls.io/repos/github/rom8726/floxy/badge.svg?branch=main)](https://coveralls.io/github/rom8726/floxy?branch=main&ver=1)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
 [![boosty-cozy](https://gideonwhite1029.github.io/badges/cozy-boosty_vector.svg)](https://boosty.to/dev-tools-hacker)
 
