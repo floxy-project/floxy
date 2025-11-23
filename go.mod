@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.23.2
-	github.com/rom8726/chaoskit v0.7.1
+	github.com/rom8726/chaoskit v0.9.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.40.0
