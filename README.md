@@ -38,6 +38,7 @@ By using this project, you acknowledge that **all risks are your own**, and the 
 - [Dead Letter Queue](#dead-letter-queue-dlq)
 - [Known Issues](#known-issues)
   - [Condition Steps in Forked Branches](#condition-steps-in-forked-branches)
+  - [Rollback for nested Fork/Join branches](#rollback-for-nested-fork-/-join-branches)
 - [Installation](#installation)
 - [Dependencies](#dependencies)
 
