@@ -432,13 +432,13 @@ Fork("parallel_branch", func(branch1 *floxy.Builder) {
 JoinStep("join", []string{"branch1_step1", "branch2_step1"}, floxy.JoinStrategyAll)
 ```
 
-**SOLVED:** Avoid using `JoinStep` with `Condition`, use `Join` instead that dynamically creates waitFor list (virtual steps conception used).
+**SOLVED**: Avoid using `JoinStep` with `Condition`, use `Join` instead that dynamically creates waitFor list (virtual steps conception used).
 
 See `examples/condition/main.go` for a demonstration of this issue.
 
 ### Rollback for nested Fork/Join branches
 
-When using nested `Fork` branches, rollback is not supported.
+**SOLVED**: Nested `Fork`/`Join` branches are fully supported for rollback. The engine uses a `visited` map to prevent double rollback of steps that may be reached through multiple paths in nested fork/join structures.
 
 ## Installation
 
