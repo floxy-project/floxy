@@ -12,6 +12,13 @@ func WithEngineCancelInterval(interval time.Duration) EngineOption {
 	}
 }
 
+// WithEngineAwaitPollInterval sets the polling interval for StartAwait method.
+func WithEngineAwaitPollInterval(interval time.Duration) EngineOption {
+	return func(engine *Engine) {
+		engine.awaitPollInterval = interval
+	}
+}
+
 func WithEngineTxManager(txManager TxManager) EngineOption {
 	return func(engine *Engine) {
 		engine.txManager = txManager

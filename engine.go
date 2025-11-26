@@ -17,6 +17,7 @@ import (
 const (
 	defaultCancelWorkerInterval = 100 * time.Millisecond
 	defaultShutdownTimeout      = 5 * time.Second
+	defaultAwaitPollInterval    = 100 * time.Millisecond
 )
 
 type Engine struct {
@@ -27,6 +28,7 @@ type Engine struct {
 	cancelContexts       map[int64]map[int64]context.CancelFunc // instanceID -> stepID -> cancel function
 	cancelMu             sync.RWMutex
 	cancelWorkerInterval time.Duration
+	awaitPollInterval    time.Duration
 
 	// Shutdown logic controls
 	shutdownCh     chan struct{}
@@ -50,6 +52,14 @@ type Engine struct {
 	skipLogNextAllowed        map[string]time.Time
 }
 
+// StartAwaitResult contains the result of StartAwait operation.
+type StartAwaitResult struct {
+	InstanceID int64
+	Status     WorkflowStatus
+	Output     json.RawMessage
+	Error      *string
+}
+
 func NewEngine(pool *pgxpool.Pool, opts ...EngineOption) *Engine {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 
@@ -60,6 +70,7 @@ func NewEngine(pool *pgxpool.Pool, opts ...EngineOption) *Engine {
 		cancelContexts:       make(map[int64]map[int64]context.CancelFunc),
 		shutdownCh:           make(chan struct{}),
 		cancelWorkerInterval: defaultCancelWorkerInterval,
+		awaitPollInterval:    defaultAwaitPollInterval,
 		shutdownCtx:          shutdownCtx,
 		shutdownCancel:       shutdownCancel,
 		// defaults for missing-handler behavior
@@ -206,6 +217,62 @@ func (engine *Engine) Start(ctx context.Context, workflowID string, input json.R
 	}
 
 	return instanceID, nil
+}
+
+// StartAwait starts a workflow and waits for its completion.
+// The method blocks until the workflow reaches a terminal state
+// (completed, failed, cancelled, aborted, or dlq) or the context is cancelled.
+func (engine *Engine) StartAwait(ctx context.Context, workflowID string, input json.RawMessage) (*StartAwaitResult, error) {
+	instanceID, err := engine.Start(ctx, workflowID, input)
+	if err != nil {
+		return nil, fmt.Errorf("start workflow: %w", err)
+	}
+
+	result, err := engine.awaitCompletion(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// awaitCompletion waits for the workflow instance to reach a terminal state.
+func (engine *Engine) awaitCompletion(ctx context.Context, instanceID int64) (*StartAwaitResult, error) {
+	ticker := time.NewTicker(engine.awaitPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-engine.shutdownCh:
+			return nil, errors.New("engine shutdown")
+		case <-ticker.C:
+			instance, err := engine.store.GetInstance(ctx, instanceID)
+			if err != nil {
+				return nil, fmt.Errorf("get instance: %w", err)
+			}
+
+			if engine.isTerminalStatus(instance.Status) {
+				return &StartAwaitResult{
+					InstanceID: instance.ID,
+					Status:     instance.Status,
+					Output:     instance.Output,
+					Error:      instance.Error,
+				}, nil
+			}
+		}
+	}
+}
+
+// isTerminalStatus checks if the workflow status is terminal.
+func (engine *Engine) isTerminalStatus(status WorkflowStatus) bool {
+	switch status {
+	case StatusCompleted, StatusFailed, StatusCancelled, StatusAborted, StatusDLQ:
+		return true
+	default:
+		return false
+	}
 }
 
 func (engine *Engine) Shutdown(timeoutOpt ...time.Duration) error {
