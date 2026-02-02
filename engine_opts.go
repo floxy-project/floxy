@@ -79,3 +79,29 @@ func WithQueueAgingRate(rate float64) EngineOption {
 		e.store.SetAgingRate(rate)
 	}
 }
+
+// WithLongRunningSteps enables a mode optimized for handlers that run for extended periods
+// (minutes to hours). In this mode, the handler execution happens outside of the database
+// transaction, which:
+//
+//   - Releases the database connection during handler execution
+//   - Makes the "running" status immediately visible to other connections
+//   - Prevents connection pool exhaustion with many concurrent workers
+//
+// Trade-offs:
+//
+//   - If a worker crashes during handler execution, the step will be stuck in "running" status.
+//     You should implement a recovery mechanism to reset stuck steps (e.g., a cron job that
+//     resets steps in "running" status for longer than expected execution time).
+//
+//   - Handlers should be idempotent or use the IdempotencyKey from StepContext to handle
+//     potential re-execution after recovery.
+//
+// Example usage:
+//
+//	engine := NewEngine(pool, WithLongRunningSteps())
+func WithLongRunningSteps() EngineOption {
+	return func(e *Engine) {
+		e.longRunningSteps = true
+	}
+}

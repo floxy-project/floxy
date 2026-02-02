@@ -579,7 +579,22 @@ engine := NewEngine(pool,
 
 This ensures low-priority steps eventually get processed even in busy queues.
 
-### 6.4 Workflow Events
+### 6.4 Long-Running Steps Mode
+
+For handlers that run for extended periods (minutes to hours), enable long-running mode:
+
+```go
+engine := NewEngine(pool, WithLongRunningSteps())
+```
+
+In this mode, handler execution happens outside of the database transaction. This releases the DB connection during handler execution and makes the "running" status immediately visible.
+
+**Trade-offs:**
+
+- If a worker crashes mid-handler, the step remains in "running" status — implement a recovery mechanism to reset stuck steps
+- Handlers should be idempotent or use `StepContext.IdempotencyKey()`
+
+### 6.5 Workflow Events
 
 All state changes are persisted as events.
 
