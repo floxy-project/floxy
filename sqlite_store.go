@@ -174,19 +174,18 @@ func (s *SQLiteStore) UpdateInstanceStatus(ctx context.Context, instanceID int64
 	// Update started_at when status is running and started_at is NULL
 	const query = `UPDATE workflow_instances 
 		SET status=?, output=?, error=?, updated_at=?,
-			locked_until = CASE WHEN ? IN ('completed', 'failed', 'cancelled', 'aborted', 'dlq') THEN NULL ELSE locked_until END,
 			completed_at = CASE WHEN ? IN ('completed', 'failed', 'cancelled') THEN ? ELSE completed_at END,
 			started_at = CASE WHEN started_at IS NULL AND ? = 'running' THEN ? ELSE started_at END
 		WHERE id=?`
 	_, err := s.db.ExecContext(
-		ctx, query, status, output, errMsg, now, status, status, now, status, now, instanceID,
+		ctx, query, status, output, errMsg, now, status, now, status, now, instanceID,
 	)
 	return err
 }
 
 func (s *SQLiteStore) GetInstance(ctx context.Context, instanceID int64) (*WorkflowInstance, error) {
 	const query = `SELECT id, workflow_id, status, input, output, error,
-			locked_until, started_at, completed_at, created_at, updated_at
+			started_at, completed_at, created_at, updated_at
 		FROM workflow_instances
 		WHERE id=?`
 	row := s.db.QueryRowContext(ctx, query, instanceID)
@@ -194,7 +193,6 @@ func (s *SQLiteStore) GetInstance(ctx context.Context, instanceID int64) (*Workf
 	var inputBytes, outputBytes []byte
 	if err := row.Scan(
 		&inst.ID, &inst.WorkflowID, &inst.Status, &inputBytes, &outputBytes, &inst.Error,
-		&inst.LockedUntil,
 		&inst.StartedAt, &inst.CompletedAt, &inst.CreatedAt, &inst.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -325,12 +323,15 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	row := tx.QueryRowContext(
 		ctx,
 		fmt.Sprintf(`
-			SELECT q.id, q.instance_id, q.step_id, q.scheduled_at, q.attempted_at, q.attempted_by, q.priority
+			SELECT q.id, q.instance_id, q.step_id, q.scheduled_at,
+				q.attempted_at, q.attempted_by, q.locked_until, q.priority
 			FROM queue q
 			JOIN workflow_instances wi ON wi.id = q.instance_id
 			WHERE q.scheduled_at <= ?
-				AND q.attempted_at IS NULL
-				AND (wi.locked_until IS NULL OR wi.locked_until < ?)
+				AND (
+					q.attempted_at IS NULL
+					OR (q.locked_until IS NOT NULL AND q.locked_until < ?)
+				)
 			ORDER BY %s DESC, q.scheduled_at ASC, q.id ASC
 			LIMIT 1`,
 			orderExpr,
@@ -340,7 +341,7 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	var qi QueueItem
 	if err := row.Scan(
 		&qi.ID, &qi.InstanceID, &qi.StepID, &qi.ScheduledAt,
-		&qi.AttemptedAt, &qi.AttemptedBy, &qi.Priority,
+		&qi.AttemptedAt, &qi.AttemptedBy, &qi.LockedUntil, &qi.Priority,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -369,19 +370,18 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 		ctx,
 		`UPDATE workflow_instances
 			SET status=CASE WHEN status IN ('pending', 'running') THEN 'running' ELSE status END,
-				locked_until=?,
 				updated_at=?
 			WHERE id=?`,
-		lockedUntil, now, qi.InstanceID,
+		now, qi.InstanceID,
 	); err != nil {
 		return nil, err
 	}
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE queue
-			SET attempted_at=?, attempted_by=?
+			SET attempted_at=?, attempted_by=?, locked_until=?
 			WHERE id=?`,
-		now, workerID, qi.ID,
+		now, workerID, lockedUntil, qi.ID,
 	)
 	if err != nil {
 		return nil, err
@@ -392,6 +392,7 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	}
 	qi.AttemptedAt = &now
 	qi.AttemptedBy = &workerID
+	qi.LockedUntil = &lockedUntil
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -401,51 +402,17 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 }
 
 func (s *SQLiteStore) RemoveFromQueue(ctx context.Context, queueID int64) error {
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if tx != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	var instanceID int64
-	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM queue WHERE id=?`, queueID).Scan(&instanceID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM queue WHERE id=?`, queueID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `UPDATE workflow_instances SET locked_until=NULL WHERE id=?`, instanceID); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	tx = nil
-	return nil
+	_, err := s.db.ExecContext(
+		ctx, `DELETE FROM queue WHERE id=?`, queueID,
+	)
+	return err
 }
 
 func (s *SQLiteStore) ReleaseQueueItem(ctx context.Context, queueID int64) error {
 	_, err := s.db.ExecContext(
 		ctx,
-		`UPDATE workflow_instances
-			SET locked_until=NULL
-			WHERE id=(SELECT instance_id FROM queue WHERE id=?)`,
-		queueID,
-	)
-	if err != nil {
-		return err
-	}
-	_, err = s.db.ExecContext(
-		ctx,
 		`UPDATE queue
-			SET attempted_at=NULL, attempted_by=NULL
+			SET attempted_at=NULL, attempted_by=NULL, locked_until=NULL
 			WHERE id=?`,
 		queueID,
 	)
@@ -456,18 +423,8 @@ func (s *SQLiteStore) RescheduleAndReleaseQueueItem(ctx context.Context, queueID
 	sched := time.Now().Add(delay)
 	_, err := s.db.ExecContext(
 		ctx,
-		`UPDATE workflow_instances
-			SET locked_until=NULL
-			WHERE id=(SELECT instance_id FROM queue WHERE id=?)`,
-		queueID,
-	)
-	if err != nil {
-		return err
-	}
-	_, err = s.db.ExecContext(
-		ctx,
 		`UPDATE queue
-			SET scheduled_at=?, attempted_at=NULL, attempted_by=NULL
+			SET scheduled_at=?, attempted_at=NULL, attempted_by=NULL, locked_until=NULL
 			WHERE id=?`,
 		sched, queueID,
 	)
@@ -751,7 +708,7 @@ func (s *SQLiteStore) GetWorkflowInstances(ctx context.Context, workflowID strin
 	rows, err := s.db.QueryContext(
 		ctx,
 		`SELECT id, workflow_id, status, input, output, error,
-			locked_until, started_at, completed_at, created_at, updated_at
+			started_at, completed_at, created_at, updated_at
 			FROM workflow_instances
 			WHERE workflow_id=?
 			ORDER BY id`,
@@ -765,7 +722,7 @@ func (s *SQLiteStore) GetWorkflowInstances(ctx context.Context, workflowID strin
 	for rows.Next() {
 		var inst WorkflowInstance
 		var inb, outb []byte
-		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error, &inst.LockedUntil, &inst.StartedAt,
+		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error, &inst.StartedAt,
 			&inst.CompletedAt, &inst.CreatedAt, &inst.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -781,7 +738,7 @@ func (s *SQLiteStore) GetAllWorkflowInstances(ctx context.Context) ([]WorkflowIn
 	rows, err := s.db.QueryContext(
 		ctx,
 		`SELECT id, workflow_id, status, input, output, error,
-			locked_until, started_at, completed_at, created_at, updated_at
+			started_at, completed_at, created_at, updated_at
 			FROM workflow_instances
 			ORDER BY id`,
 	)
@@ -793,7 +750,7 @@ func (s *SQLiteStore) GetAllWorkflowInstances(ctx context.Context) ([]WorkflowIn
 	for rows.Next() {
 		var inst WorkflowInstance
 		var inb, outb []byte
-		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error, &inst.LockedUntil, &inst.StartedAt,
+		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error, &inst.StartedAt,
 			&inst.CompletedAt, &inst.CreatedAt, &inst.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -816,7 +773,7 @@ func (s *SQLiteStore) GetWorkflowInstancesPaginated(ctx context.Context, workflo
 	rows, err := s.db.QueryContext(
 		ctx,
 		`SELECT id, workflow_id, status, input, output, error,
-			locked_until, started_at, completed_at, created_at, updated_at
+			started_at, completed_at, created_at, updated_at
 			FROM workflow_instances
 			WHERE workflow_id=?
 			ORDER BY created_at DESC
@@ -832,7 +789,7 @@ func (s *SQLiteStore) GetWorkflowInstancesPaginated(ctx context.Context, workflo
 	for rows.Next() {
 		var inst WorkflowInstance
 		var inb, outb []byte
-		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error, &inst.LockedUntil, &inst.StartedAt,
+		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error, &inst.StartedAt,
 			&inst.CompletedAt, &inst.CreatedAt, &inst.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
@@ -855,7 +812,7 @@ func (s *SQLiteStore) GetAllWorkflowInstancesPaginated(ctx context.Context, offs
 	rows, err := s.db.QueryContext(
 		ctx,
 		`SELECT id, workflow_id, status, input, output, error,
-			locked_until, started_at, completed_at, created_at, updated_at
+			started_at, completed_at, created_at, updated_at
 			FROM workflow_instances
 			ORDER BY created_at DESC
 			LIMIT ? OFFSET ?`,
@@ -871,7 +828,7 @@ func (s *SQLiteStore) GetAllWorkflowInstancesPaginated(ctx context.Context, offs
 		var inst WorkflowInstance
 		var inb, outb []byte
 		if err := rows.Scan(&inst.ID, &inst.WorkflowID, &inst.Status, &inb, &outb, &inst.Error,
-			&inst.LockedUntil, &inst.StartedAt, &inst.CompletedAt, &inst.CreatedAt, &inst.UpdatedAt); err != nil {
+			&inst.StartedAt, &inst.CompletedAt, &inst.CreatedAt, &inst.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		inst.Input = inb
