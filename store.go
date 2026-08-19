@@ -166,7 +166,7 @@ func (store *StoreImpl) CreateInstance(
 	const query = `
 INSERT INTO workflows.workflow_instances (workflow_id, status, input, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $4)
-RETURNING id, workflow_id, status, input, locked_until, created_at, updated_at`
+RETURNING id, workflow_id, status, input, created_at, updated_at`
 
 	now := time.Now()
 	instance := &WorkflowInstance{}
@@ -175,7 +175,7 @@ RETURNING id, workflow_id, status, input, locked_until, created_at, updated_at`
 		workflowID, StatusPending, input, now,
 	).Scan(
 		&instance.ID, &instance.WorkflowID, &instance.Status,
-		&instance.Input, &instance.LockedUntil, &instance.CreatedAt, &instance.UpdatedAt,
+		&instance.Input, &instance.CreatedAt, &instance.UpdatedAt,
 	)
 
 	return instance, err
@@ -193,7 +193,6 @@ func (store *StoreImpl) UpdateInstanceStatus(
 	const query = `
 UPDATE workflows.workflow_instances
 SET status = $2, output = $3, error = $4, updated_at = $5,
-	locked_until = CASE WHEN $2 IN ('completed', 'failed', 'cancelled', 'aborted', 'dlq') THEN NULL ELSE locked_until END,
 	completed_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN $5 ELSE completed_at END,
 	started_at = CASE WHEN started_at IS NULL AND $2 = 'running' THEN $5 ELSE started_at END
 WHERE id = $1`
@@ -208,7 +207,7 @@ func (store *StoreImpl) GetInstance(ctx context.Context, instanceID int64) (*Wor
 
 	const query = `
 SELECT id, workflow_id, status, input, output, error,
-	   locked_until, started_at, completed_at, created_at, updated_at
+	   started_at, completed_at, created_at, updated_at
 FROM workflows.workflow_instances
 WHERE id = $1`
 
@@ -216,7 +215,6 @@ WHERE id = $1`
 	err := executor.QueryRow(ctx, query, instanceID).Scan(
 		&instance.ID, &instance.WorkflowID, &instance.Status,
 		&instance.Input, &instance.Output, &instance.Error,
-		&instance.LockedUntil,
 		&instance.StartedAt, &instance.CompletedAt,
 		&instance.CreatedAt, &instance.UpdatedAt,
 	)
@@ -352,8 +350,10 @@ WITH next_item AS (
 	JOIN workflows.workflow_instances wi ON wi.id = q.instance_id
 	JOIN workflows.workflow_definitions wd ON wd.id = wi.workflow_id
 	WHERE q.scheduled_at <= $1
-		AND q.attempted_at IS NULL
-		AND (wi.locked_until IS NULL OR wi.locked_until < $1)
+		AND (
+			q.attempted_at IS NULL
+			OR (q.locked_until IS NOT NULL AND q.locked_until < $1)
+		)
 	ORDER BY
 		LEAST(100,
 			q.priority + FLOOR(EXTRACT(EPOCH FROM ($1 - q.scheduled_at)) * $3)
@@ -365,14 +365,15 @@ WITH next_item AS (
 locked_instance AS (
 	UPDATE workflows.workflow_instances wi
 	SET status = CASE WHEN wi.status IN ('pending', 'running') THEN 'running' ELSE wi.status END,
-		locked_until = next_item.locked_until,
 		updated_at = $1
 	FROM next_item
 	WHERE wi.id = next_item.instance_id
 	RETURNING wi.id
 )
 UPDATE workflows.workflow_queue
-SET attempted_at = $1, attempted_by = $4
+SET attempted_at = $1,
+	attempted_by = $4,
+	locked_until = next_item.locked_until
 FROM next_item, locked_instance
 WHERE workflows.workflow_queue.id = next_item.id
 RETURNING workflows.workflow_queue.id,
@@ -381,6 +382,7 @@ RETURNING workflows.workflow_queue.id,
 	workflows.workflow_queue.scheduled_at,
 	workflows.workflow_queue.attempted_at,
 	workflows.workflow_queue.attempted_by,
+	workflows.workflow_queue.locked_until,
 	workflows.workflow_queue.priority`
 		args = []any{now, defaultLockNanos, store.agingRate, workerID}
 	} else {
@@ -396,8 +398,10 @@ WITH next_item AS (
 	JOIN workflows.workflow_instances wi ON wi.id = q.instance_id
 	JOIN workflows.workflow_definitions wd ON wd.id = wi.workflow_id
 	WHERE q.scheduled_at <= $1
-		AND q.attempted_at IS NULL
-		AND (wi.locked_until IS NULL OR wi.locked_until < $1)
+		AND (
+			q.attempted_at IS NULL
+			OR (q.locked_until IS NOT NULL AND q.locked_until < $1)
+		)
 	ORDER BY q.priority DESC, q.scheduled_at ASC
 	LIMIT 1
 	FOR UPDATE OF q, wi SKIP LOCKED
@@ -405,14 +409,15 @@ WITH next_item AS (
 locked_instance AS (
 	UPDATE workflows.workflow_instances wi
 	SET status = CASE WHEN wi.status IN ('pending', 'running') THEN 'running' ELSE wi.status END,
-		locked_until = next_item.locked_until,
 		updated_at = $1
 	FROM next_item
 	WHERE wi.id = next_item.instance_id
 	RETURNING wi.id
 )
 UPDATE workflows.workflow_queue
-SET attempted_at = $1, attempted_by = $3
+SET attempted_at = $1,
+	attempted_by = $3,
+	locked_until = next_item.locked_until
 FROM next_item, locked_instance
 WHERE workflows.workflow_queue.id = next_item.id
 RETURNING workflows.workflow_queue.id,
@@ -421,6 +426,7 @@ RETURNING workflows.workflow_queue.id,
 	workflows.workflow_queue.scheduled_at,
 	workflows.workflow_queue.attempted_at,
 	workflows.workflow_queue.attempted_by,
+	workflows.workflow_queue.locked_until,
 	workflows.workflow_queue.priority`
 		args = []any{now, defaultLockNanos, workerID}
 	}
@@ -428,7 +434,7 @@ RETURNING workflows.workflow_queue.id,
 	item := &QueueItem{}
 	err := executor.QueryRow(ctx, query, args...).Scan(
 		&item.ID, &item.InstanceID, &item.StepID,
-		&item.ScheduledAt, &item.AttemptedAt, &item.AttemptedBy, &item.Priority,
+		&item.ScheduledAt, &item.AttemptedAt, &item.AttemptedBy, &item.LockedUntil, &item.Priority,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -441,16 +447,7 @@ RETURNING workflows.workflow_queue.id,
 func (store *StoreImpl) RemoveFromQueue(ctx context.Context, queueID int64) error {
 	executor := store.getExecutor(ctx)
 
-	const query = `
-WITH deleted_item AS (
-	DELETE FROM workflows.workflow_queue
-	WHERE id = $1
-	RETURNING instance_id
-)
-UPDATE workflows.workflow_instances wi
-SET locked_until = NULL
-FROM deleted_item
-WHERE wi.id = deleted_item.instance_id`
+	const query = `DELETE FROM workflows.workflow_queue WHERE id = $1`
 	_, err := executor.Exec(ctx, query, queueID)
 
 	return err
@@ -460,16 +457,11 @@ func (store *StoreImpl) ReleaseQueueItem(ctx context.Context, queueID int64) err
 	executor := store.getExecutor(ctx)
 
 	const query = `
-WITH released_item AS (
-	UPDATE workflows.workflow_queue
-	SET attempted_at = NULL, attempted_by = NULL
-	WHERE id = $1
-	RETURNING instance_id
-)
-UPDATE workflows.workflow_instances wi
-SET locked_until = NULL
-FROM released_item
-WHERE wi.id = released_item.instance_id`
+UPDATE workflows.workflow_queue
+SET attempted_at = NULL,
+	attempted_by = NULL,
+	locked_until = NULL
+WHERE id = $1`
 	_, err := executor.Exec(ctx, query, queueID)
 
 	return err
@@ -479,18 +471,12 @@ func (store *StoreImpl) RescheduleAndReleaseQueueItem(ctx context.Context, queue
 	executor := store.getExecutor(ctx)
 
 	const query = `
-WITH released_item AS (
 UPDATE workflows.workflow_queue
 SET scheduled_at = GREATEST(scheduled_at, $2),
     attempted_at = NULL,
-    attempted_by = NULL
-WHERE id = $1
-RETURNING instance_id
-)
-UPDATE workflows.workflow_instances wi
-SET locked_until = NULL
-FROM released_item
-WHERE wi.id = released_item.instance_id`
+    attempted_by = NULL,
+    locked_until = NULL
+WHERE id = $1`
 
 	scheduledAt := time.Now().Add(delay)
 	_, err := executor.Exec(ctx, query, queueID, scheduledAt)
@@ -985,7 +971,7 @@ func (store *StoreImpl) GetWorkflowInstances(ctx context.Context, workflowID str
 
 	const query = `
 SELECT id, workflow_id, status, input, output, error, 
-		locked_until, started_at, completed_at, created_at, updated_at
+		started_at, completed_at, created_at, updated_at
 FROM workflows.workflow_instances
 WHERE workflow_id = $1
 ORDER BY created_at DESC`
@@ -1006,7 +992,6 @@ ORDER BY created_at DESC`
 			&instance.Input,
 			&instance.Output,
 			&instance.Error,
-			&instance.LockedUntil,
 			&instance.StartedAt,
 			&instance.CompletedAt,
 			&instance.CreatedAt,
@@ -1026,7 +1011,7 @@ func (store *StoreImpl) GetAllWorkflowInstances(ctx context.Context) ([]Workflow
 
 	const query = `
 SELECT id, workflow_id, status, input, output, error, 
-		locked_until, started_at, completed_at, created_at, updated_at
+		started_at, completed_at, created_at, updated_at
 FROM workflows.workflow_instances
 ORDER BY created_at DESC`
 
@@ -1046,7 +1031,6 @@ ORDER BY created_at DESC`
 			&instance.Input,
 			&instance.Output,
 			&instance.Error,
-			&instance.LockedUntil,
 			&instance.StartedAt,
 			&instance.CompletedAt,
 			&instance.CreatedAt,
@@ -1076,7 +1060,7 @@ WHERE workflow_id = $1`
 
 	const query = `
 SELECT id, workflow_id, status, input, output, error, 
-		locked_until, started_at, completed_at, created_at, updated_at
+		started_at, completed_at, created_at, updated_at
 FROM workflows.workflow_instances
 WHERE workflow_id = $1
 ORDER BY created_at DESC
@@ -1098,7 +1082,6 @@ LIMIT $2 OFFSET $3`
 			&instance.Input,
 			&instance.Output,
 			&instance.Error,
-			&instance.LockedUntil,
 			&instance.StartedAt,
 			&instance.CompletedAt,
 			&instance.CreatedAt,
@@ -1125,7 +1108,7 @@ func (store *StoreImpl) GetAllWorkflowInstancesPaginated(ctx context.Context, of
 
 	const query = `
 SELECT id, workflow_id, status, input, output, error, 
-		locked_until, started_at, completed_at, created_at, updated_at
+		started_at, completed_at, created_at, updated_at
 FROM workflows.workflow_instances
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2`
@@ -1146,7 +1129,6 @@ LIMIT $1 OFFSET $2`
 			&instance.Input,
 			&instance.Output,
 			&instance.Error,
-			&instance.LockedUntil,
 			&instance.StartedAt,
 			&instance.CompletedAt,
 			&instance.CreatedAt,

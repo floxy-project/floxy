@@ -129,7 +129,6 @@ type WorkflowInstance struct {
 	Input       json.RawMessage `json:"input"`
 	Output      json.RawMessage `json:"output"`
 	Error       *string         `json:"error"`
-	LockedUntil *time.Time      `json:"locked_until,omitempty"`
 	StartedAt   *time.Time      `json:"started_at"`
 	CompletedAt *time.Time      `json:"completed_at"`
 	CreatedAt   time.Time       `json:"created_at"`
@@ -161,6 +160,7 @@ type QueueItem struct {
 	ScheduledAt time.Time  `json:"scheduled_at"`
 	AttemptedAt *time.Time `json:"attempted_at"`
 	AttemptedBy *string    `json:"attempted_by"`
+	LockedUntil *time.Time `json:"locked_until,omitempty"`
 	Priority    int        `json:"priority"`
 }
 
