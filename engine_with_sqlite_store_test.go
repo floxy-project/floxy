@@ -80,15 +80,19 @@ func TestSQLiteStoreQueueOperations(t *testing.T) {
 	ctx := context.Background()
 	store := newSQLiteStoreForTest(t)
 
-	instanceID := int64(1)
 	stepID := int64(10)
+	wf, err := NewBuilder("sqlite-queue-test", 1).Step("start", "handler").Build()
+	require.NoError(t, err)
+	require.NoError(t, store.SaveWorkflowDefinition(ctx, wf))
+	instance, err := store.CreateInstance(ctx, wf.ID, nil)
+	require.NoError(t, err)
 	// enqueue
-	require.NoError(t, store.EnqueueStep(ctx, instanceID, &stepID, PriorityNormal, 0))
+	require.NoError(t, store.EnqueueStep(ctx, instance.ID, &stepID, PriorityNormal, 0))
 	// dequeue
 	item, err := store.DequeueStep(ctx, "worker-1")
 	require.NoError(t, err)
 	require.NotNil(t, item)
-	assert.Equal(t, instanceID, item.InstanceID)
+	assert.Equal(t, instance.ID, item.InstanceID)
 	require.NotNil(t, item.StepID)
 	assert.Equal(t, stepID, *item.StepID)
 	// remove
@@ -291,13 +295,17 @@ func TestSQLiteStoreAgingRateValidation(t *testing.T) {
 
 	// Test that aging actually works with valid values
 	store.SetAgingRate(0.5)
-	instanceID := int64(1)
 	stepID := int64(10)
-	require.NoError(t, store.EnqueueStep(ctx, instanceID, &stepID, PriorityNormal, 0))
+	wf, err := NewBuilder("sqlite-aging-test", 1).Step("start", "handler").Build()
+	require.NoError(t, err)
+	require.NoError(t, store.SaveWorkflowDefinition(ctx, wf))
+	instance, err := store.CreateInstance(ctx, wf.ID, nil)
+	require.NoError(t, err)
+	require.NoError(t, store.EnqueueStep(ctx, instance.ID, &stepID, PriorityNormal, 0))
 
 	// Dequeue should work with aging enabled
 	item, err = store.DequeueStep(ctx, "worker-1")
 	require.NoError(t, err)
 	require.NotNil(t, item)
-	assert.Equal(t, instanceID, item.InstanceID)
+	assert.Equal(t, instance.ID, item.InstanceID)
 }

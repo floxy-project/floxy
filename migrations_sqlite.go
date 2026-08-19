@@ -49,6 +49,9 @@ func RunSQLiteMigrations(ctx context.Context, db *sql.DB) error {
 		stmts := splitSQLStatements(content)
 		for _, stmt := range stmts {
 			if _, err := tx.ExecContext(ctx, stmt); err != nil {
+				if isSQLiteDuplicateColumnError(err) {
+					continue
+				}
 				return fmt.Errorf("exec migration %s: %w", e.Name(), err)
 			}
 		}
@@ -88,4 +91,8 @@ func splitSQLStatements(sqlText string) []string {
 		res = append(res, stmt)
 	}
 	return res
+}
+
+func isSQLiteDuplicateColumnError(err error) bool {
+	return strings.Contains(err.Error(), "duplicate column name")
 }

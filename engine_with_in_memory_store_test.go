@@ -509,16 +509,20 @@ func TestInMemoryStoreQueueOperations(t *testing.T) {
 	ctx := context.Background()
 	store := NewMemoryStore()
 
-	instanceID := int64(1)
 	stepID := int64(10)
+	wf, err := NewBuilder("queue-test", 1).Step("start", "handler").Build()
+	require.NoError(t, err)
+	require.NoError(t, store.SaveWorkflowDefinition(ctx, wf))
+	instance, err := store.CreateInstance(ctx, wf.ID, nil)
+	require.NoError(t, err)
 
-	err := store.EnqueueStep(ctx, instanceID, &stepID, PriorityNormal, 0)
+	err = store.EnqueueStep(ctx, instance.ID, &stepID, PriorityNormal, 0)
 	require.NoError(t, err)
 
 	item, err := store.DequeueStep(ctx, "worker-1")
 	require.NoError(t, err)
 	require.NotNil(t, item)
-	assert.Equal(t, instanceID, item.InstanceID)
+	assert.Equal(t, instance.ID, item.InstanceID)
 	assert.Equal(t, stepID, *item.StepID)
 
 	err = store.RemoveFromQueue(ctx, item.ID)

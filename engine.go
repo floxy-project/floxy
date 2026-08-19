@@ -320,35 +320,34 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 		return true, nil
 	}
 
+	item, err := engine.store.DequeueStep(ctx, workerID)
+	if err != nil {
+		return false, fmt.Errorf("dequeue step: %w", err)
+	}
+
+	if item == nil {
+		return true, nil
+	}
+
+	if engine.isShutdown() {
+		_ = engine.store.ReleaseQueueItem(ctx, item.ID)
+
+		return true, nil
+	}
+
+	engine.activeSteps.Add(1)
+	defer engine.activeSteps.Done()
+
+	removeFromQueue := true
 	err = engine.txManager.ReadCommitted(ctx, func(ctx context.Context) error {
 		if engine.isShutdown() {
-			empty = true
-
-			return nil
-		}
-
-		item, err := engine.store.DequeueStep(ctx, workerID)
-		if err != nil {
-			return fmt.Errorf("dequeue step: %w", err)
-		}
-
-		if item == nil {
-			empty = true
-
-			return nil
-		}
-
-		if engine.isShutdown() {
 			_ = engine.store.ReleaseQueueItem(ctx, item.ID)
+			removeFromQueue = false
 			empty = true
 
 			return nil
 		}
 
-		engine.activeSteps.Add(1)
-		defer engine.activeSteps.Done()
-
-		removeFromQueue := true
 		defer func() {
 			if removeFromQueue {
 				_ = engine.store.RemoveFromQueue(ctx, item.ID)
@@ -495,6 +494,10 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 		return engine.executeStep(ctx, instance, step)
 	})
 	if err != nil {
+		if removeFromQueue {
+			_ = engine.store.ReleaseQueueItem(ctx, item.ID)
+		}
+
 		return empty, err
 	}
 
