@@ -329,6 +329,7 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 			FROM queue q
 			JOIN workflow_instances wi ON wi.id = q.instance_id
 			WHERE q.scheduled_at <= ?
+				AND q.attempted_at IS NULL
 				AND (wi.locked_until IS NULL OR wi.locked_until < ?)
 			ORDER BY %s DESC, q.scheduled_at ASC, q.id ASC
 			LIMIT 1`,

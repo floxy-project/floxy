@@ -291,6 +291,9 @@ func (s *MemoryStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	maxPriority := -1
 
 	for _, item := range s.queue {
+		if item.AttemptedAt != nil {
+			continue
+		}
 		if item.ScheduledAt.After(now) {
 			continue
 		}

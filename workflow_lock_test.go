@@ -54,6 +54,8 @@ func TestMemoryStoreDequeueStep_AllowsExpiredWorkflowLock(t *testing.T) {
 	store.mu.Lock()
 	expired := time.Now().Add(-time.Second)
 	store.instances[instance.ID].LockedUntil = &expired
+	store.queue[firstItem.ID].AttemptedAt = nil
+	store.queue[firstItem.ID].AttemptedBy = nil
 	store.mu.Unlock()
 
 	secondItem, err := store.DequeueStep(ctx, "worker-2")

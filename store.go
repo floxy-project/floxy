@@ -352,6 +352,7 @@ WITH next_item AS (
 	JOIN workflows.workflow_instances wi ON wi.id = q.instance_id
 	JOIN workflows.workflow_definitions wd ON wd.id = wi.workflow_id
 	WHERE q.scheduled_at <= $1
+		AND q.attempted_at IS NULL
 		AND (wi.locked_until IS NULL OR wi.locked_until < $1)
 	ORDER BY
 		LEAST(100,
@@ -395,6 +396,7 @@ WITH next_item AS (
 	JOIN workflows.workflow_instances wi ON wi.id = q.instance_id
 	JOIN workflows.workflow_definitions wd ON wd.id = wi.workflow_id
 	WHERE q.scheduled_at <= $1
+		AND q.attempted_at IS NULL
 		AND (wi.locked_until IS NULL OR wi.locked_until < $1)
 	ORDER BY q.priority DESC, q.scheduled_at ASC
 	LIMIT 1
