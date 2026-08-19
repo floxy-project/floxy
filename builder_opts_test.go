@@ -54,6 +54,22 @@ func TestWithBuilderMaxRetries(t *testing.T) {
 	}
 }
 
+func TestWithWorkflowLockTimeout(t *testing.T) {
+	builder := &Builder{}
+
+	WithWorkflowLockTimeout(30 * time.Second)(builder)
+
+	assert.Equal(t, 30*time.Second, builder.workflowLockTimeout)
+}
+
+func TestWithWorkflowLockTimeout_NonPositiveUsesDefault(t *testing.T) {
+	builder := &Builder{}
+
+	WithWorkflowLockTimeout(-time.Second)(builder)
+
+	assert.Zero(t, builder.workflowLockTimeout)
+}
+
 func TestWithStepDelay(t *testing.T) {
 	type args struct {
 		delay time.Duration

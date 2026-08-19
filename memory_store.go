@@ -149,6 +149,14 @@ func (s *MemoryStore) UpdateInstanceStatus(
 	instance.Error = errMsg
 	instance.UpdatedAt = time.Now()
 
+	if status == StatusCompleted ||
+		status == StatusFailed ||
+		status == StatusCancelled ||
+		status == StatusAborted ||
+		status == StatusDLQ {
+		instance.LockedUntil = nil
+	}
+
 	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
 		now := time.Now()
 		instance.CompletedAt = &now
@@ -283,10 +291,14 @@ func (s *MemoryStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	maxPriority := -1
 
 	for _, item := range s.queue {
-		if item.AttemptedAt != nil {
+		if item.ScheduledAt.After(now) {
 			continue
 		}
-		if item.ScheduledAt.After(now) {
+		instance := s.instances[item.InstanceID]
+		if instance == nil {
+			continue
+		}
+		if instance.LockedUntil != nil && !instance.LockedUntil.Before(now) {
 			continue
 		}
 
@@ -312,6 +324,18 @@ func (s *MemoryStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 
 	selectedItem.AttemptedAt = &now
 	selectedItem.AttemptedBy = &workerID
+	if instance := s.instances[selectedItem.InstanceID]; instance != nil {
+		lockTimeout := defaultWorkflowLockTimeout
+		if def := s.definitions[instance.WorkflowID]; def != nil && def.Definition.WorkflowLockTimeout > 0 {
+			lockTimeout = def.Definition.WorkflowLockTimeout
+		}
+		lockedUntil := now.Add(lockTimeout)
+		if instance.Status == StatusPending || instance.Status == StatusRunning {
+			instance.Status = StatusRunning
+		}
+		instance.LockedUntil = &lockedUntil
+		instance.UpdatedAt = now
+	}
 
 	result := *selectedItem
 
@@ -322,6 +346,11 @@ func (s *MemoryStore) RemoveFromQueue(ctx context.Context, queueID int64) error 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if item := s.queue[queueID]; item != nil {
+		if instance := s.instances[item.InstanceID]; instance != nil {
+			instance.LockedUntil = nil
+		}
+	}
 	delete(s.queue, queueID)
 
 	return nil
@@ -338,6 +367,9 @@ func (s *MemoryStore) ReleaseQueueItem(ctx context.Context, queueID int64) error
 
 	item.AttemptedAt = nil
 	item.AttemptedBy = nil
+	if instance := s.instances[item.InstanceID]; instance != nil {
+		instance.LockedUntil = nil
+	}
 
 	return nil
 }
@@ -360,6 +392,9 @@ func (s *MemoryStore) RescheduleAndReleaseQueueItem(ctx context.Context, queueID
 	item.ScheduledAt = newScheduledAt
 	item.AttemptedAt = nil
 	item.AttemptedBy = nil
+	if instance := s.instances[item.InstanceID]; instance != nil {
+		instance.LockedUntil = nil
+	}
 
 	return nil
 }

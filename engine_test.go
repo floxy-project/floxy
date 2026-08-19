@@ -392,10 +392,7 @@ func TestEngine_ExecuteNext_NoQueueItem(t *testing.T) {
 
 	workerID := "worker-1"
 
-	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(nil, nil)
-		fn(ctx)
-	}).Return(nil)
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(nil, nil)
 
 	empty, err := engine.ExecuteNext(context.Background(), workerID)
 
@@ -412,10 +409,7 @@ func TestEngine_ExecuteNext_DequeueError(t *testing.T) {
 
 	workerID := "worker-1"
 
-	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(nil, errors.New("dequeue failed"))
-		fn(ctx)
-	}).Return(errors.New("dequeue step: dequeue failed"))
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(nil, errors.New("dequeue failed"))
 
 	empty, err := engine.ExecuteNext(context.Background(), workerID)
 
@@ -449,13 +443,14 @@ func TestEngine_ExecuteNext_StepNotFound(t *testing.T) {
 
 	steps := []WorkflowStep{}
 
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 		mockStore.EXPECT().RemoveFromQueue(mock.Anything, queueItem.ID).Return(nil)
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return(steps, nil)
 		fn(ctx)
 	}).Return(errors.New("step not found: 456"))
+	mockStore.EXPECT().ReleaseQueueItem(mock.Anything, queueItem.ID).Return(nil)
 
 	empty, err := engine.ExecuteNext(context.Background(), workerID)
 
@@ -1563,10 +1558,9 @@ func TestEngine_ExecuteNext_CompensationMissingHandler_RescheduleAndRelease(t *t
 		},
 	}
 
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 	// Expectations inside transaction
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		// Dequeue a specific item
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 		// Lookup instance and steps
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step}, nil)
@@ -1622,8 +1616,8 @@ func TestEngine_ExecuteNext_CompensationMissingHandler_ReleaseOnly(t *testing.T)
 		},
 	}
 
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step}, nil)
 		mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(def, nil)
@@ -1677,8 +1671,8 @@ func TestEngine_ExecuteNext_TaskMissingHandler_RescheduleAndRelease(t *testing.T
 		},
 	}
 
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step}, nil)
 		mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(def, nil)
@@ -1731,8 +1725,8 @@ func TestEngine_ExecuteNext_TaskMissingHandler_ReleaseOnly(t *testing.T) {
 		},
 	}
 
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step}, nil)
 		mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(def, nil)
@@ -1786,8 +1780,8 @@ func TestEngine_ExecuteNext_TaskMissingHandler_LogThrottling(t *testing.T) {
 	}
 
 	// First execution: should log
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem1, nil)
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem1, nil)
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step1}, nil)
 		mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(def, nil)
@@ -1798,8 +1792,8 @@ func TestEngine_ExecuteNext_TaskMissingHandler_LogThrottling(t *testing.T) {
 	}).Return(nil)
 
 	// Second execution immediately: should NOT log again due to throttling
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem2, nil)
 	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).Run(func(ctx context.Context, fn func(ctx context.Context) error) {
-		mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem2, nil)
 		mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
 		mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step2}, nil)
 		mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(def, nil)

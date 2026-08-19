@@ -95,9 +95,10 @@ type WorkflowDefinition struct {
 }
 
 type GraphDefinition struct {
-	Steps      map[string]*StepDefinition `json:"steps"`
-	Start      string                     `json:"start"`
-	DLQEnabled bool                       `json:"dlq_enabled"`
+	Steps               map[string]*StepDefinition `json:"steps"`
+	Start               string                     `json:"start"`
+	DLQEnabled          bool                       `json:"dlq_enabled"`
+	WorkflowLockTimeout time.Duration              `json:"workflow_lock_timeout,omitempty"`
 }
 
 type StepDefinition struct {
@@ -128,6 +129,7 @@ type WorkflowInstance struct {
 	Input       json.RawMessage `json:"input"`
 	Output      json.RawMessage `json:"output"`
 	Error       *string         `json:"error"`
+	LockedUntil *time.Time      `json:"locked_until,omitempty"`
 	StartedAt   *time.Time      `json:"started_at"`
 	CompletedAt *time.Time      `json:"completed_at"`
 	CreatedAt   time.Time       `json:"created_at"`

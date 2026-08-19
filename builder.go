@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	defaultMaxRetries = 3
+	defaultMaxRetries          = 3
+	defaultWorkflowLockTimeout = 1 * time.Minute
 
 	rootStepName = "_root_"
 )
@@ -20,9 +21,10 @@ type Builder struct {
 	currentStep  string
 	nestingLevel int
 
-	subBuilders       []*Builder
-	defaultMaxRetries int
-	dlqEnabled        bool
+	subBuilders         []*Builder
+	defaultMaxRetries   int
+	dlqEnabled          bool
+	workflowLockTimeout time.Duration
 
 	err error
 }
@@ -549,9 +551,10 @@ func (builder *Builder) Build() (*WorkflowDefinition, error) {
 		Name:    builder.name,
 		Version: builder.version,
 		Definition: GraphDefinition{
-			Start:      builder.startStep,
-			Steps:      builder.steps,
-			DLQEnabled: builder.dlqEnabled,
+			Start:               builder.startStep,
+			Steps:               builder.steps,
+			DLQEnabled:          builder.dlqEnabled,
+			WorkflowLockTimeout: builder.workflowLockTimeout,
 		},
 	}
 
