@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 )
 
@@ -324,7 +325,7 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 		ctx,
 		fmt.Sprintf(`
 			SELECT q.id, q.instance_id, q.step_id, q.scheduled_at,
-				q.attempted_at, q.attempted_by, q.locked_until, q.priority
+				q.attempted_at, q.attempted_by, q.locked_until, q.lock_token, q.priority
 			FROM queue q
 			JOIN workflow_instances wi ON wi.id = q.instance_id
 			WHERE q.scheduled_at <= ?
@@ -341,7 +342,7 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	var qi QueueItem
 	if err := row.Scan(
 		&qi.ID, &qi.InstanceID, &qi.StepID, &qi.ScheduledAt,
-		&qi.AttemptedAt, &qi.AttemptedBy, &qi.LockedUntil, &qi.Priority,
+		&qi.AttemptedAt, &qi.AttemptedBy, &qi.LockedUntil, &qi.LockToken, &qi.Priority,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -366,6 +367,7 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 		}
 	}
 	lockedUntil := now.Add(lockTimeout)
+	lockToken := uuid.NewString()
 	if _, err := tx.ExecContext(
 		ctx,
 		`UPDATE workflow_instances
@@ -379,9 +381,9 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	res, err := tx.ExecContext(
 		ctx,
 		`UPDATE queue
-			SET attempted_at=?, attempted_by=?, locked_until=?
+			SET attempted_at=?, attempted_by=?, locked_until=?, lock_token=?
 			WHERE id=?`,
-		now, workerID, lockedUntil, qi.ID,
+		now, workerID, lockedUntil, lockToken, qi.ID,
 	)
 	if err != nil {
 		return nil, err
@@ -393,12 +395,61 @@ func (s *SQLiteStore) DequeueStep(ctx context.Context, workerID string) (*QueueI
 	qi.AttemptedAt = &now
 	qi.AttemptedBy = &workerID
 	qi.LockedUntil = &lockedUntil
+	qi.LockToken = &lockToken
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	tx = nil
 	return &qi, nil
+}
+
+func (s *SQLiteStore) ExtendQueueItemLock(
+	ctx context.Context,
+	queueID int64,
+	lockToken string,
+	ttl time.Duration,
+) (bool, error) {
+	if ttl <= 0 {
+		ttl = defaultWorkflowLockTimeout
+	}
+
+	now := time.Now()
+	lockedUntil := now.Add(ttl)
+	res, err := s.db.ExecContext(
+		ctx,
+		`UPDATE queue
+			SET locked_until=?
+			WHERE id=? AND lock_token=? AND locked_until > ?`,
+		lockedUntil, queueID, lockToken, now,
+	)
+	if err != nil {
+		return false, err
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return rows > 0, nil
+}
+
+func (s *SQLiteStore) QueueItemLockStillOwned(ctx context.Context, queueID int64, lockToken string) (bool, error) {
+	var exists int
+	err := s.db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM queue
+			WHERE id=? AND lock_token=? AND locked_until > ?
+		)`,
+		queueID, lockToken, time.Now(),
+	).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists == 1, nil
 }
 
 func (s *SQLiteStore) RemoveFromQueue(ctx context.Context, queueID int64) error {
@@ -412,7 +463,7 @@ func (s *SQLiteStore) ReleaseQueueItem(ctx context.Context, queueID int64) error
 	_, err := s.db.ExecContext(
 		ctx,
 		`UPDATE queue
-			SET attempted_at=NULL, attempted_by=NULL, locked_until=NULL
+			SET attempted_at=NULL, attempted_by=NULL, locked_until=NULL, lock_token=NULL
 			WHERE id=?`,
 		queueID,
 	)
@@ -424,7 +475,7 @@ func (s *SQLiteStore) RescheduleAndReleaseQueueItem(ctx context.Context, queueID
 	_, err := s.db.ExecContext(
 		ctx,
 		`UPDATE queue
-			SET scheduled_at=?, attempted_at=NULL, attempted_by=NULL, locked_until=NULL
+			SET scheduled_at=?, attempted_at=NULL, attempted_by=NULL, locked_until=NULL, lock_token=NULL
 			WHERE id=?`,
 		sched, queueID,
 	)

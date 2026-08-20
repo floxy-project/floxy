@@ -72,7 +72,7 @@ func WithDLQEnabled(enabled bool) BuilderOption {
 	}
 }
 
-// WithWorkflowLockTimeout sets how long a workflow instance stays locked after a worker claims it.
+// WithWorkflowLockTimeout sets how long a queue item lease lasts after a worker claims it.
 // If unset or non-positive, the store falls back to the default lock timeout.
 func WithWorkflowLockTimeout(timeout time.Duration) BuilderOption {
 	return func(builder *Builder) {

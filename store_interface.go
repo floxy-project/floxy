@@ -47,6 +47,8 @@ type Store interface {
 		status StepStatus,
 	) error
 	DequeueStep(ctx context.Context, workerID string) (*QueueItem, error)
+	ExtendQueueItemLock(ctx context.Context, queueID int64, lockToken string, ttl time.Duration) (bool, error)
+	QueueItemLockStillOwned(ctx context.Context, queueID int64, lockToken string) (bool, error)
 	RemoveFromQueue(ctx context.Context, queueID int64) error
 	ReleaseQueueItem(ctx context.Context, queueID int64) error
 	RescheduleAndReleaseQueueItem(ctx context.Context, queueID int64, delay time.Duration) error
