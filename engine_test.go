@@ -459,6 +459,76 @@ func TestEngine_ExecuteNext_StepNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "step not found")
 }
 
+func TestEngine_ExecuteNext_DoesNotFinalizeWhenQueueLockLost(t *testing.T) {
+	mockTxManager := NewMockTxManager(t)
+	mockStore := NewMockStore(t)
+	mockStore.EXPECT().GetCancelRequest(mock.Anything, mock.Anything).Return(nil, ErrEntityNotFound).Maybe()
+	engine := NewEngine(nil, WithEngineTxManager(mockTxManager), WithEngineStore(mockStore))
+	defer engine.Shutdown()
+
+	workerID := "worker-1"
+	instanceID := int64(123)
+	stepID := int64(456)
+	queueID := int64(789)
+	lockToken := "lease-token"
+	attemptedAt := time.Now()
+	lockedUntil := attemptedAt.Add(time.Hour)
+
+	queueItem := &QueueItem{
+		ID:          queueID,
+		InstanceID:  instanceID,
+		StepID:      &stepID,
+		AttemptedAt: &attemptedAt,
+		LockedUntil: &lockedUntil,
+		LockToken:   &lockToken,
+	}
+	instance := &WorkflowInstance{
+		ID:         instanceID,
+		WorkflowID: "test-workflow",
+		Status:     StatusRunning,
+	}
+	step := WorkflowStep{
+		ID:         stepID,
+		InstanceID: instanceID,
+		StepName:   "savepoint",
+		StepType:   StepTypeSavePoint,
+		Status:     StepStatusPending,
+		Input:      json.RawMessage(`{"ok":true}`),
+	}
+	definition := &WorkflowDefinition{
+		ID: "test-workflow",
+		Definition: GraphDefinition{
+			Start: "savepoint",
+			Steps: map[string]*StepDefinition{
+				"savepoint": {
+					Name: "savepoint",
+					Type: StepTypeSavePoint,
+				},
+			},
+		},
+	}
+
+	mockStore.EXPECT().DequeueStep(mock.Anything, workerID).Return(queueItem, nil)
+	mockTxManager.EXPECT().ReadCommitted(mock.Anything, mock.Anything).
+		RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+			mockStore.EXPECT().GetInstance(mock.Anything, instanceID).Return(instance, nil)
+			mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step}, nil)
+			mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(definition, nil)
+			mockStore.EXPECT().UpdateStep(mock.Anything, stepID, StepStatusRunning, mock.Anything, mock.Anything).Return(nil)
+			mockStore.EXPECT().LogEvent(mock.Anything, instanceID, &stepID, EventStepStarted, mock.Anything).Return(nil)
+			mockStore.EXPECT().QueueItemLockStillOwned(mock.Anything, queueID, lockToken).Return(false, nil)
+
+			return fn(ctx)
+		})
+
+	empty, err := engine.ExecuteNext(context.Background(), workerID)
+
+	assert.ErrorIs(t, err, ErrQueueItemLockLost)
+	assert.False(t, empty)
+	mockStore.AssertNotCalled(t, "RemoveFromQueue", mock.Anything, queueID)
+	mockStore.AssertNotCalled(t, "ReleaseQueueItem", mock.Anything, queueID)
+}
+
 func TestEngine_ExecuteTask_Success(t *testing.T) {
 	mockTxManager := NewMockTxManager(t)
 	mockStore := NewMockStore(t)
@@ -601,7 +671,7 @@ func TestEngine_ExecuteSavePoint_Success(t *testing.T) {
 	mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, instance.WorkflowID).Return(definition, nil)
 	mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return([]WorkflowStep{step}, nil)
 
-	err := engine.executeStep(context.Background(), instance, &step)
+	err := engine.executeStep(context.Background(), instance, &step, nil)
 
 	assert.NoError(t, err)
 }

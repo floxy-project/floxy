@@ -338,6 +338,9 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 	engine.activeSteps.Add(1)
 	defer engine.activeSteps.Done()
 
+	stopHeartbeat := engine.startQueueItemLockHeartbeat(ctx, item)
+	defer stopHeartbeat()
+
 	removeFromQueue := true
 	err = engine.txManager.ReadCommitted(ctx, func(ctx context.Context) error {
 		if engine.isShutdown() {
@@ -449,7 +452,12 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 				}
 			}
 
-			return engine.executeCompensationStep(ctx, instance, step)
+			err = engine.executeCompensationStep(ctx, instance, step, item)
+			if errors.Is(err, ErrQueueItemLockLost) {
+				removeFromQueue = false
+			}
+
+			return err
 		}
 
 		// Distributed handlers: if this is a task step and no local handler is registered,
@@ -491,7 +499,12 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 			}
 		}
 
-		return engine.executeStep(ctx, instance, step)
+		err = engine.executeStep(ctx, instance, step, item)
+		if errors.Is(err, ErrQueueItemLockLost) {
+			removeFromQueue = false
+		}
+
+		return err
 	})
 	if err != nil {
 		if removeFromQueue {
@@ -502,6 +515,117 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 	}
 
 	return empty, nil
+}
+
+func (engine *Engine) startQueueItemLockHeartbeat(ctx context.Context, item *QueueItem) func() {
+	lockToken, ok := queueItemLockToken(item)
+	if !ok {
+		return func() {}
+	}
+
+	ttl := queueItemLockTTL(item)
+	interval := queueItemLockHeartbeatInterval(ttl)
+	heartbeatCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-heartbeatCtx.Done():
+				return
+			case <-ticker.C:
+				owned, err := engine.store.ExtendQueueItemLock(heartbeatCtx, item.ID, lockToken, ttl)
+				if err != nil {
+					if heartbeatCtx.Err() == nil {
+						slog.Warn("[floxy] failed to extend queue item lock",
+							"queue_id", item.ID,
+							"error", err,
+						)
+					}
+
+					return
+				}
+				if !owned {
+					slog.Warn("[floxy] queue item lock ownership lost",
+						"queue_id", item.ID,
+						"worker", queueItemAttemptedBy(item),
+					)
+
+					return
+				}
+			}
+		}
+	}()
+
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+func queueItemLockToken(item *QueueItem) (string, bool) {
+	if item == nil || item.LockToken == nil || *item.LockToken == "" {
+		return "", false
+	}
+
+	return *item.LockToken, true
+}
+
+func queueItemAttemptedBy(item *QueueItem) string {
+	if item == nil || item.AttemptedBy == nil {
+		return ""
+	}
+
+	return *item.AttemptedBy
+}
+
+func queueItemLockTTL(item *QueueItem) time.Duration {
+	if item != nil && item.LockedUntil != nil {
+		base := time.Now()
+		if item.AttemptedAt != nil {
+			base = *item.AttemptedAt
+		}
+		if ttl := item.LockedUntil.Sub(base); ttl > 0 {
+			return ttl
+		}
+	}
+
+	return defaultWorkflowLockTimeout
+}
+
+func queueItemLockHeartbeatInterval(ttl time.Duration) time.Duration {
+	if ttl <= 0 {
+		ttl = defaultWorkflowLockTimeout
+	}
+
+	interval := ttl / 3
+	if interval < time.Millisecond {
+		return time.Millisecond
+	}
+
+	return interval
+}
+
+func (engine *Engine) ensureQueueItemLock(ctx context.Context, item *QueueItem) error {
+	lockToken, ok := queueItemLockToken(item)
+	if !ok {
+		return nil
+	}
+
+	owned, err := engine.store.QueueItemLockStillOwned(ctx, item.ID, lockToken)
+	if err != nil {
+		return fmt.Errorf("check queue item lock: %w", err)
+	}
+	if !owned {
+		return ErrQueueItemLockLost
+	}
+
+	return nil
 }
 
 func (engine *Engine) MakeHumanDecision(
@@ -746,7 +870,12 @@ func (engine *Engine) stopActiveSteps(ctx context.Context, instanceID int64) err
 	return nil
 }
 
-func (engine *Engine) executeStep(ctx context.Context, instance *WorkflowInstance, step *WorkflowStep) error {
+func (engine *Engine) executeStep(
+	ctx context.Context,
+	instance *WorkflowInstance,
+	step *WorkflowStep,
+	queueItem *QueueItem,
+) error {
 	// If workflow is in DLQ state, do not execute any steps until operator requeues
 	if instance.Status == StatusDLQ {
 		return nil
@@ -827,6 +956,10 @@ func (engine *Engine) executeStep(ctx context.Context, instance *WorkflowInstanc
 		if err == nil && cancelReq != nil {
 			return engine.handleCancellation(ctx, instance, step, cancelReq)
 		}
+	}
+
+	if err := engine.ensureQueueItemLock(ctx, queueItem); err != nil {
+		return err
 	}
 
 	if stepErr != nil {
@@ -941,7 +1074,12 @@ func (engine *Engine) handleCancellation(
 	return nil
 }
 
-func (engine *Engine) executeCompensationStep(ctx context.Context, instance *WorkflowInstance, step *WorkflowStep) error {
+func (engine *Engine) executeCompensationStep(
+	ctx context.Context,
+	instance *WorkflowInstance,
+	step *WorkflowStep,
+	queueItem *QueueItem,
+) error {
 	def, err := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID)
 	if err != nil {
 		return fmt.Errorf("get workflow definition: %w", err)
@@ -992,6 +1130,9 @@ func (engine *Engine) executeCompensationStep(ctx context.Context, instance *Wor
 
 	// Execute the compensation handler
 	_, compensationErr := handler.Execute(ctx, &stepCtx, step.Input)
+	if err := engine.ensureQueueItemLock(ctx, queueItem); err != nil {
+		return err
+	}
 	if compensationErr != nil {
 		// Compensation failed, check if we can retry
 		if step.CompensationRetryCount < onFailureStep.MaxRetries {

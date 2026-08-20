@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func strPtr(s string) *string { return &s }
-
 // ========================= executeCompensationStep =========================
 
 func Test_executeCompensationStep_NoOnFailure_MarksRolledBack(t *testing.T) {
@@ -35,7 +33,7 @@ func Test_executeCompensationStep_NoOnFailure_MarksRolledBack(t *testing.T) {
 	store.EXPECT().UpdateStep(mock.Anything, step.ID, StepStatusRolledBack, step.Input, (*string)(nil)).Return(nil)
 
 	instance := &WorkflowInstance{ID: step.InstanceID, WorkflowID: def.ID}
-	err := engine.executeCompensationStep(ctx, instance, step)
+	err := engine.executeCompensationStep(ctx, instance, step, nil)
 	assert.NoError(t, err)
 }
 
@@ -62,7 +60,7 @@ func Test_executeCompensationStep_OnFailureHandlerMissing_MarksRolledBack(t *tes
 	store.EXPECT().UpdateStep(mock.Anything, step.ID, StepStatusRolledBack, step.Input, (*string)(nil)).Return(nil)
 
 	instance := &WorkflowInstance{ID: step.InstanceID, WorkflowID: def.ID}
-	err := engine.executeCompensationStep(ctx, instance, step)
+	err := engine.executeCompensationStep(ctx, instance, step, nil)
 	assert.NoError(t, err)
 }
 
@@ -97,7 +95,7 @@ func Test_executeCompensationStep_HandlerSuccess_RolledBackAndEvent(t *testing.T
 	).Times(3)
 
 	instance := &WorkflowInstance{ID: step.InstanceID, WorkflowID: def.ID}
-	err := engine.executeCompensationStep(ctx, instance, step)
+	err := engine.executeCompensationStep(ctx, instance, step, nil)
 	assert.NoError(t, err)
 }
 
@@ -130,7 +128,7 @@ func Test_executeCompensationStep_HandlerFails_WithRetry(t *testing.T) {
 	store.EXPECT().LogEvent(mock.Anything, step.InstanceID, &step.ID, EventStepFailed, mock.Anything).Return(nil).Maybe()
 
 	instance := &WorkflowInstance{ID: step.InstanceID, WorkflowID: def.ID}
-	err := engine.executeCompensationStep(ctx, instance, step)
+	err := engine.executeCompensationStep(ctx, instance, step, nil)
 	assert.NoError(t, err)
 }
 
@@ -161,7 +159,7 @@ func Test_executeCompensationStep_HandlerFails_MaxRetriesExceeded(t *testing.T) 
 	store.EXPECT().LogEvent(mock.Anything, step.InstanceID, &step.ID, EventStepFailed, mock.Anything).Return(nil).Maybe()
 
 	instance := &WorkflowInstance{ID: step.InstanceID, WorkflowID: def.ID}
-	err := engine.executeCompensationStep(ctx, instance, step)
+	err := engine.executeCompensationStep(ctx, instance, step, nil)
 	assert.NoError(t, err)
 }
 

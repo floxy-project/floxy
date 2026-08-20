@@ -68,7 +68,7 @@ type MockIEngine_AbortWorkflow_Call struct {
 //   - instanceID int64
 //   - requestedBy string
 //   - reason string
-func (_e *MockIEngine_Expecter) AbortWorkflow(ctx interface{}, instanceID interface{}, requestedBy interface{}, reason interface{}) *MockIEngine_AbortWorkflow_Call {
+func (_e *MockIEngine_Expecter) AbortWorkflow(ctx any, instanceID any, requestedBy any, reason any) *MockIEngine_AbortWorkflow_Call {
 	return &MockIEngine_AbortWorkflow_Call{Call: _e.mock.On("AbortWorkflow", ctx, instanceID, requestedBy, reason)}
 }
 
@@ -137,7 +137,7 @@ type MockIEngine_CancelWorkflow_Call struct {
 //   - instanceID int64
 //   - requestedBy string
 //   - reason string
-func (_e *MockIEngine_Expecter) CancelWorkflow(ctx interface{}, instanceID interface{}, requestedBy interface{}, reason interface{}) *MockIEngine_CancelWorkflow_Call {
+func (_e *MockIEngine_Expecter) CancelWorkflow(ctx any, instanceID any, requestedBy any, reason any) *MockIEngine_CancelWorkflow_Call {
 	return &MockIEngine_CancelWorkflow_Call{Call: _e.mock.On("CancelWorkflow", ctx, instanceID, requestedBy, reason)}
 }
 
@@ -207,7 +207,7 @@ type MockIEngine_MakeHumanDecision_Call struct {
 //   - decidedBy string
 //   - decision HumanDecision
 //   - comment *string
-func (_e *MockIEngine_Expecter) MakeHumanDecision(ctx interface{}, stepID interface{}, decidedBy interface{}, decision interface{}, comment interface{}) *MockIEngine_MakeHumanDecision_Call {
+func (_e *MockIEngine_Expecter) MakeHumanDecision(ctx any, stepID any, decidedBy any, decision any, comment any) *MockIEngine_MakeHumanDecision_Call {
 	return &MockIEngine_MakeHumanDecision_Call{Call: _e.mock.On("MakeHumanDecision", ctx, stepID, decidedBy, decision, comment)}
 }
 
@@ -280,7 +280,7 @@ type MockIEngine_RequeueFromDLQ_Call struct {
 //   - ctx context.Context
 //   - dlqID int64
 //   - newInput *json.RawMessage
-func (_e *MockIEngine_Expecter) RequeueFromDLQ(ctx interface{}, dlqID interface{}, newInput interface{}) *MockIEngine_RequeueFromDLQ_Call {
+func (_e *MockIEngine_Expecter) RequeueFromDLQ(ctx any, dlqID any, newInput any) *MockIEngine_RequeueFromDLQ_Call {
 	return &MockIEngine_RequeueFromDLQ_Call{Call: _e.mock.On("RequeueFromDLQ", ctx, dlqID, newInput)}
 }
 
@@ -379,7 +379,7 @@ type MockMonitor_GetWorkflowStats_Call struct {
 
 // GetWorkflowStats is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMonitor_Expecter) GetWorkflowStats(ctx interface{}) *MockMonitor_GetWorkflowStats_Call {
+func (_e *MockMonitor_Expecter) GetWorkflowStats(ctx any) *MockMonitor_GetWorkflowStats_Call {
 	return &MockMonitor_GetWorkflowStats_Call{Call: _e.mock.On("GetWorkflowStats", ctx)}
 }
 
@@ -504,7 +504,7 @@ type MockPlugin_OnRollbackStepChain_Call struct {
 //   - instanceID int64
 //   - stepName string
 //   - depth int
-func (_e *MockPlugin_Expecter) OnRollbackStepChain(ctx interface{}, instanceID interface{}, stepName interface{}, depth interface{}) *MockPlugin_OnRollbackStepChain_Call {
+func (_e *MockPlugin_Expecter) OnRollbackStepChain(ctx any, instanceID any, stepName any, depth any) *MockPlugin_OnRollbackStepChain_Call {
 	return &MockPlugin_OnRollbackStepChain_Call{Call: _e.mock.On("OnRollbackStepChain", ctx, instanceID, stepName, depth)}
 }
 
@@ -572,7 +572,7 @@ type MockPlugin_OnStepComplete_Call struct {
 //   - ctx context.Context
 //   - instance *WorkflowInstance
 //   - step *WorkflowStep
-func (_e *MockPlugin_Expecter) OnStepComplete(ctx interface{}, instance interface{}, step interface{}) *MockPlugin_OnStepComplete_Call {
+func (_e *MockPlugin_Expecter) OnStepComplete(ctx any, instance any, step any) *MockPlugin_OnStepComplete_Call {
 	return &MockPlugin_OnStepComplete_Call{Call: _e.mock.On("OnStepComplete", ctx, instance, step)}
 }
 
@@ -636,7 +636,7 @@ type MockPlugin_OnStepFailed_Call struct {
 //   - instance *WorkflowInstance
 //   - step *WorkflowStep
 //   - err error
-func (_e *MockPlugin_Expecter) OnStepFailed(ctx interface{}, instance interface{}, step interface{}, err interface{}) *MockPlugin_OnStepFailed_Call {
+func (_e *MockPlugin_Expecter) OnStepFailed(ctx any, instance any, step any, err any) *MockPlugin_OnStepFailed_Call {
 	return &MockPlugin_OnStepFailed_Call{Call: _e.mock.On("OnStepFailed", ctx, instance, step, err)}
 }
 
@@ -704,7 +704,7 @@ type MockPlugin_OnStepStart_Call struct {
 //   - ctx context.Context
 //   - instance *WorkflowInstance
 //   - step *WorkflowStep
-func (_e *MockPlugin_Expecter) OnStepStart(ctx interface{}, instance interface{}, step interface{}) *MockPlugin_OnStepStart_Call {
+func (_e *MockPlugin_Expecter) OnStepStart(ctx any, instance any, step any) *MockPlugin_OnStepStart_Call {
 	return &MockPlugin_OnStepStart_Call{Call: _e.mock.On("OnStepStart", ctx, instance, step)}
 }
 
@@ -766,7 +766,7 @@ type MockPlugin_OnWorkflowComplete_Call struct {
 // OnWorkflowComplete is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instance *WorkflowInstance
-func (_e *MockPlugin_Expecter) OnWorkflowComplete(ctx interface{}, instance interface{}) *MockPlugin_OnWorkflowComplete_Call {
+func (_e *MockPlugin_Expecter) OnWorkflowComplete(ctx any, instance any) *MockPlugin_OnWorkflowComplete_Call {
 	return &MockPlugin_OnWorkflowComplete_Call{Call: _e.mock.On("OnWorkflowComplete", ctx, instance)}
 }
 
@@ -823,7 +823,7 @@ type MockPlugin_OnWorkflowFailed_Call struct {
 // OnWorkflowFailed is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instance *WorkflowInstance
-func (_e *MockPlugin_Expecter) OnWorkflowFailed(ctx interface{}, instance interface{}) *MockPlugin_OnWorkflowFailed_Call {
+func (_e *MockPlugin_Expecter) OnWorkflowFailed(ctx any, instance any) *MockPlugin_OnWorkflowFailed_Call {
 	return &MockPlugin_OnWorkflowFailed_Call{Call: _e.mock.On("OnWorkflowFailed", ctx, instance)}
 }
 
@@ -880,7 +880,7 @@ type MockPlugin_OnWorkflowStart_Call struct {
 // OnWorkflowStart is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instance *WorkflowInstance
-func (_e *MockPlugin_Expecter) OnWorkflowStart(ctx interface{}, instance interface{}) *MockPlugin_OnWorkflowStart_Call {
+func (_e *MockPlugin_Expecter) OnWorkflowStart(ctx any, instance any) *MockPlugin_OnWorkflowStart_Call {
 	return &MockPlugin_OnWorkflowStart_Call{Call: _e.mock.On("OnWorkflowStart", ctx, instance)}
 }
 
@@ -1020,7 +1020,7 @@ type MockStepHandler_Execute_Call struct {
 //   - ctx context.Context
 //   - stepCtx StepContext
 //   - input json.RawMessage
-func (_e *MockStepHandler_Expecter) Execute(ctx interface{}, stepCtx interface{}, input interface{}) *MockStepHandler_Execute_Call {
+func (_e *MockStepHandler_Expecter) Execute(ctx any, stepCtx any, input any) *MockStepHandler_Execute_Call {
 	return &MockStepHandler_Execute_Call{Call: _e.mock.On("Execute", ctx, stepCtx, input)}
 }
 
@@ -1209,7 +1209,7 @@ type MockStepContext_GetVariable_Call struct {
 
 // GetVariable is a helper method to define mock.On call
 //   - key string
-func (_e *MockStepContext_Expecter) GetVariable(key interface{}) *MockStepContext_GetVariable_Call {
+func (_e *MockStepContext_Expecter) GetVariable(key any) *MockStepContext_GetVariable_Call {
 	return &MockStepContext_GetVariable_Call{Call: _e.mock.On("GetVariable", key)}
 }
 
@@ -1269,7 +1269,7 @@ type MockStepContext_GetVariableAsString_Call struct {
 
 // GetVariableAsString is a helper method to define mock.On call
 //   - key string
-func (_e *MockStepContext_Expecter) GetVariableAsString(key interface{}) *MockStepContext_GetVariableAsString_Call {
+func (_e *MockStepContext_Expecter) GetVariableAsString(key any) *MockStepContext_GetVariableAsString_Call {
 	return &MockStepContext_GetVariableAsString_Call{Call: _e.mock.On("GetVariableAsString", key)}
 }
 
@@ -1526,7 +1526,7 @@ type MockStore_AddToJoinWaitFor_Call struct {
 //   - instanceID int64
 //   - joinStepName string
 //   - stepToAdd string
-func (_e *MockStore_Expecter) AddToJoinWaitFor(ctx interface{}, instanceID interface{}, joinStepName interface{}, stepToAdd interface{}) *MockStore_AddToJoinWaitFor_Call {
+func (_e *MockStore_Expecter) AddToJoinWaitFor(ctx any, instanceID any, joinStepName any, stepToAdd any) *MockStore_AddToJoinWaitFor_Call {
 	return &MockStore_AddToJoinWaitFor_Call{Call: _e.mock.On("AddToJoinWaitFor", ctx, instanceID, joinStepName, stepToAdd)}
 }
 
@@ -1602,7 +1602,7 @@ type MockStore_CleanupOldWorkflows_Call struct {
 // CleanupOldWorkflows is a helper method to define mock.On call
 //   - ctx context.Context
 //   - daysToKeep int
-func (_e *MockStore_Expecter) CleanupOldWorkflows(ctx interface{}, daysToKeep interface{}) *MockStore_CleanupOldWorkflows_Call {
+func (_e *MockStore_Expecter) CleanupOldWorkflows(ctx any, daysToKeep any) *MockStore_CleanupOldWorkflows_Call {
 	return &MockStore_CleanupOldWorkflows_Call{Call: _e.mock.On("CleanupOldWorkflows", ctx, daysToKeep)}
 }
 
@@ -1659,7 +1659,7 @@ type MockStore_CreateCancelRequest_Call struct {
 // CreateCancelRequest is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req *WorkflowCancelRequest
-func (_e *MockStore_Expecter) CreateCancelRequest(ctx interface{}, req interface{}) *MockStore_CreateCancelRequest_Call {
+func (_e *MockStore_Expecter) CreateCancelRequest(ctx any, req any) *MockStore_CreateCancelRequest_Call {
 	return &MockStore_CreateCancelRequest_Call{Call: _e.mock.On("CreateCancelRequest", ctx, req)}
 }
 
@@ -1716,7 +1716,7 @@ type MockStore_CreateDeadLetterRecord_Call struct {
 // CreateDeadLetterRecord is a helper method to define mock.On call
 //   - ctx context.Context
 //   - rec *DeadLetterRecord
-func (_e *MockStore_Expecter) CreateDeadLetterRecord(ctx interface{}, rec interface{}) *MockStore_CreateDeadLetterRecord_Call {
+func (_e *MockStore_Expecter) CreateDeadLetterRecord(ctx any, rec any) *MockStore_CreateDeadLetterRecord_Call {
 	return &MockStore_CreateDeadLetterRecord_Call{Call: _e.mock.On("CreateDeadLetterRecord", ctx, rec)}
 }
 
@@ -1773,7 +1773,7 @@ type MockStore_CreateHumanDecision_Call struct {
 // CreateHumanDecision is a helper method to define mock.On call
 //   - ctx context.Context
 //   - decision *HumanDecisionRecord
-func (_e *MockStore_Expecter) CreateHumanDecision(ctx interface{}, decision interface{}) *MockStore_CreateHumanDecision_Call {
+func (_e *MockStore_Expecter) CreateHumanDecision(ctx any, decision any) *MockStore_CreateHumanDecision_Call {
 	return &MockStore_CreateHumanDecision_Call{Call: _e.mock.On("CreateHumanDecision", ctx, decision)}
 }
 
@@ -1842,7 +1842,7 @@ type MockStore_CreateInstance_Call struct {
 //   - ctx context.Context
 //   - workflowID string
 //   - input json.RawMessage
-func (_e *MockStore_Expecter) CreateInstance(ctx interface{}, workflowID interface{}, input interface{}) *MockStore_CreateInstance_Call {
+func (_e *MockStore_Expecter) CreateInstance(ctx any, workflowID any, input any) *MockStore_CreateInstance_Call {
 	return &MockStore_CreateInstance_Call{Call: _e.mock.On("CreateInstance", ctx, workflowID, input)}
 }
 
@@ -1907,7 +1907,7 @@ type MockStore_CreateJoinState_Call struct {
 //   - joinStepName string
 //   - waitingFor []string
 //   - strategy JoinStrategy
-func (_e *MockStore_Expecter) CreateJoinState(ctx interface{}, instanceID interface{}, joinStepName interface{}, waitingFor interface{}, strategy interface{}) *MockStore_CreateJoinState_Call {
+func (_e *MockStore_Expecter) CreateJoinState(ctx any, instanceID any, joinStepName any, waitingFor any, strategy any) *MockStore_CreateJoinState_Call {
 	return &MockStore_CreateJoinState_Call{Call: _e.mock.On("CreateJoinState", ctx, instanceID, joinStepName, waitingFor, strategy)}
 }
 
@@ -1979,7 +1979,7 @@ type MockStore_CreateStep_Call struct {
 // CreateStep is a helper method to define mock.On call
 //   - ctx context.Context
 //   - step *WorkflowStep
-func (_e *MockStore_Expecter) CreateStep(ctx interface{}, step interface{}) *MockStore_CreateStep_Call {
+func (_e *MockStore_Expecter) CreateStep(ctx any, step any) *MockStore_CreateStep_Call {
 	return &MockStore_CreateStep_Call{Call: _e.mock.On("CreateStep", ctx, step)}
 }
 
@@ -2036,7 +2036,7 @@ type MockStore_DeleteCancelRequest_Call struct {
 // DeleteCancelRequest is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) DeleteCancelRequest(ctx interface{}, instanceID interface{}) *MockStore_DeleteCancelRequest_Call {
+func (_e *MockStore_Expecter) DeleteCancelRequest(ctx any, instanceID any) *MockStore_DeleteCancelRequest_Call {
 	return &MockStore_DeleteCancelRequest_Call{Call: _e.mock.On("DeleteCancelRequest", ctx, instanceID)}
 }
 
@@ -2104,7 +2104,7 @@ type MockStore_DequeueStep_Call struct {
 // DequeueStep is a helper method to define mock.On call
 //   - ctx context.Context
 //   - workerID string
-func (_e *MockStore_Expecter) DequeueStep(ctx interface{}, workerID interface{}) *MockStore_DequeueStep_Call {
+func (_e *MockStore_Expecter) DequeueStep(ctx any, workerID any) *MockStore_DequeueStep_Call {
 	return &MockStore_DequeueStep_Call{Call: _e.mock.On("DequeueStep", ctx, workerID)}
 }
 
@@ -2164,7 +2164,7 @@ type MockStore_EnqueueStep_Call struct {
 //   - stepID *int64
 //   - priority Priority
 //   - delay time.Duration
-func (_e *MockStore_Expecter) EnqueueStep(ctx interface{}, instanceID interface{}, stepID interface{}, priority interface{}, delay interface{}) *MockStore_EnqueueStep_Call {
+func (_e *MockStore_Expecter) EnqueueStep(ctx any, instanceID any, stepID any, priority any, delay any) *MockStore_EnqueueStep_Call {
 	return &MockStore_EnqueueStep_Call{Call: _e.mock.On("EnqueueStep", ctx, instanceID, stepID, priority, delay)}
 }
 
@@ -2211,6 +2211,84 @@ func (_c *MockStore_EnqueueStep_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// ExtendQueueItemLock provides a mock function for the type MockStore
+func (_mock *MockStore) ExtendQueueItemLock(ctx context.Context, queueID int64, lockToken string, ttl time.Duration) (bool, error) {
+	ret := _mock.Called(ctx, queueID, lockToken, ttl)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExtendQueueItemLock")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, time.Duration) (bool, error)); ok {
+		return returnFunc(ctx, queueID, lockToken, ttl)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, time.Duration) bool); ok {
+		r0 = returnFunc(ctx, queueID, lockToken, ttl)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, string, time.Duration) error); ok {
+		r1 = returnFunc(ctx, queueID, lockToken, ttl)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_ExtendQueueItemLock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExtendQueueItemLock'
+type MockStore_ExtendQueueItemLock_Call struct {
+	*mock.Call
+}
+
+// ExtendQueueItemLock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - queueID int64
+//   - lockToken string
+//   - ttl time.Duration
+func (_e *MockStore_Expecter) ExtendQueueItemLock(ctx any, queueID any, lockToken any, ttl any) *MockStore_ExtendQueueItemLock_Call {
+	return &MockStore_ExtendQueueItemLock_Call{Call: _e.mock.On("ExtendQueueItemLock", ctx, queueID, lockToken, ttl)}
+}
+
+func (_c *MockStore_ExtendQueueItemLock_Call) Run(run func(ctx context.Context, queueID int64, lockToken string, ttl time.Duration)) *MockStore_ExtendQueueItemLock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 time.Duration
+		if args[3] != nil {
+			arg3 = args[3].(time.Duration)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_ExtendQueueItemLock_Call) Return(b bool, err error) *MockStore_ExtendQueueItemLock_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockStore_ExtendQueueItemLock_Call) RunAndReturn(run func(ctx context.Context, queueID int64, lockToken string, ttl time.Duration) (bool, error)) *MockStore_ExtendQueueItemLock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetActiveInstances provides a mock function for the type MockStore
 func (_mock *MockStore) GetActiveInstances(ctx context.Context) ([]ActiveWorkflowInstance, error) {
 	ret := _mock.Called(ctx)
@@ -2246,7 +2324,7 @@ type MockStore_GetActiveInstances_Call struct {
 
 // GetActiveInstances is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockStore_Expecter) GetActiveInstances(ctx interface{}) *MockStore_GetActiveInstances_Call {
+func (_e *MockStore_Expecter) GetActiveInstances(ctx any) *MockStore_GetActiveInstances_Call {
 	return &MockStore_GetActiveInstances_Call{Call: _e.mock.On("GetActiveInstances", ctx)}
 }
 
@@ -2309,7 +2387,7 @@ type MockStore_GetActiveStepsForUpdate_Call struct {
 // GetActiveStepsForUpdate is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetActiveStepsForUpdate(ctx interface{}, instanceID interface{}) *MockStore_GetActiveStepsForUpdate_Call {
+func (_e *MockStore_Expecter) GetActiveStepsForUpdate(ctx any, instanceID any) *MockStore_GetActiveStepsForUpdate_Call {
 	return &MockStore_GetActiveStepsForUpdate_Call{Call: _e.mock.On("GetActiveStepsForUpdate", ctx, instanceID)}
 }
 
@@ -2376,7 +2454,7 @@ type MockStore_GetAllWorkflowInstances_Call struct {
 
 // GetAllWorkflowInstances is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockStore_Expecter) GetAllWorkflowInstances(ctx interface{}) *MockStore_GetAllWorkflowInstances_Call {
+func (_e *MockStore_Expecter) GetAllWorkflowInstances(ctx any) *MockStore_GetAllWorkflowInstances_Call {
 	return &MockStore_GetAllWorkflowInstances_Call{Call: _e.mock.On("GetAllWorkflowInstances", ctx)}
 }
 
@@ -2446,7 +2524,7 @@ type MockStore_GetAllWorkflowInstancesPaginated_Call struct {
 //   - ctx context.Context
 //   - offset int
 //   - limit int
-func (_e *MockStore_Expecter) GetAllWorkflowInstancesPaginated(ctx interface{}, offset interface{}, limit interface{}) *MockStore_GetAllWorkflowInstancesPaginated_Call {
+func (_e *MockStore_Expecter) GetAllWorkflowInstancesPaginated(ctx any, offset any, limit any) *MockStore_GetAllWorkflowInstancesPaginated_Call {
 	return &MockStore_GetAllWorkflowInstancesPaginated_Call{Call: _e.mock.On("GetAllWorkflowInstancesPaginated", ctx, offset, limit)}
 }
 
@@ -2519,7 +2597,7 @@ type MockStore_GetCancelRequest_Call struct {
 // GetCancelRequest is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetCancelRequest(ctx interface{}, instanceID interface{}) *MockStore_GetCancelRequest_Call {
+func (_e *MockStore_Expecter) GetCancelRequest(ctx any, instanceID any) *MockStore_GetCancelRequest_Call {
 	return &MockStore_GetCancelRequest_Call{Call: _e.mock.On("GetCancelRequest", ctx, instanceID)}
 }
 
@@ -2587,7 +2665,7 @@ type MockStore_GetDeadLetterByID_Call struct {
 // GetDeadLetterByID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int64
-func (_e *MockStore_Expecter) GetDeadLetterByID(ctx interface{}, id interface{}) *MockStore_GetDeadLetterByID_Call {
+func (_e *MockStore_Expecter) GetDeadLetterByID(ctx any, id any) *MockStore_GetDeadLetterByID_Call {
 	return &MockStore_GetDeadLetterByID_Call{Call: _e.mock.On("GetDeadLetterByID", ctx, id)}
 }
 
@@ -2655,7 +2733,7 @@ type MockStore_GetHumanDecision_Call struct {
 // GetHumanDecision is a helper method to define mock.On call
 //   - ctx context.Context
 //   - stepID int64
-func (_e *MockStore_Expecter) GetHumanDecision(ctx interface{}, stepID interface{}) *MockStore_GetHumanDecision_Call {
+func (_e *MockStore_Expecter) GetHumanDecision(ctx any, stepID any) *MockStore_GetHumanDecision_Call {
 	return &MockStore_GetHumanDecision_Call{Call: _e.mock.On("GetHumanDecision", ctx, stepID)}
 }
 
@@ -2723,7 +2801,7 @@ type MockStore_GetHumanDecisionStepByInstanceID_Call struct {
 // GetHumanDecisionStepByInstanceID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetHumanDecisionStepByInstanceID(ctx interface{}, instanceID interface{}) *MockStore_GetHumanDecisionStepByInstanceID_Call {
+func (_e *MockStore_Expecter) GetHumanDecisionStepByInstanceID(ctx any, instanceID any) *MockStore_GetHumanDecisionStepByInstanceID_Call {
 	return &MockStore_GetHumanDecisionStepByInstanceID_Call{Call: _e.mock.On("GetHumanDecisionStepByInstanceID", ctx, instanceID)}
 }
 
@@ -2791,7 +2869,7 @@ type MockStore_GetInstance_Call struct {
 // GetInstance is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetInstance(ctx interface{}, instanceID interface{}) *MockStore_GetInstance_Call {
+func (_e *MockStore_Expecter) GetInstance(ctx any, instanceID any) *MockStore_GetInstance_Call {
 	return &MockStore_GetInstance_Call{Call: _e.mock.On("GetInstance", ctx, instanceID)}
 }
 
@@ -2860,7 +2938,7 @@ type MockStore_GetJoinState_Call struct {
 //   - ctx context.Context
 //   - instanceID int64
 //   - joinStepName string
-func (_e *MockStore_Expecter) GetJoinState(ctx interface{}, instanceID interface{}, joinStepName interface{}) *MockStore_GetJoinState_Call {
+func (_e *MockStore_Expecter) GetJoinState(ctx any, instanceID any, joinStepName any) *MockStore_GetJoinState_Call {
 	return &MockStore_GetJoinState_Call{Call: _e.mock.On("GetJoinState", ctx, instanceID, joinStepName)}
 }
 
@@ -2933,7 +3011,7 @@ type MockStore_GetStepByID_Call struct {
 // GetStepByID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - stepID int64
-func (_e *MockStore_Expecter) GetStepByID(ctx interface{}, stepID interface{}) *MockStore_GetStepByID_Call {
+func (_e *MockStore_Expecter) GetStepByID(ctx any, stepID any) *MockStore_GetStepByID_Call {
 	return &MockStore_GetStepByID_Call{Call: _e.mock.On("GetStepByID", ctx, stepID)}
 }
 
@@ -3001,7 +3079,7 @@ type MockStore_GetStepsByInstance_Call struct {
 // GetStepsByInstance is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetStepsByInstance(ctx interface{}, instanceID interface{}) *MockStore_GetStepsByInstance_Call {
+func (_e *MockStore_Expecter) GetStepsByInstance(ctx any, instanceID any) *MockStore_GetStepsByInstance_Call {
 	return &MockStore_GetStepsByInstance_Call{Call: _e.mock.On("GetStepsByInstance", ctx, instanceID)}
 }
 
@@ -3068,7 +3146,7 @@ type MockStore_GetSummaryStats_Call struct {
 
 // GetSummaryStats is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockStore_Expecter) GetSummaryStats(ctx interface{}) *MockStore_GetSummaryStats_Call {
+func (_e *MockStore_Expecter) GetSummaryStats(ctx any) *MockStore_GetSummaryStats_Call {
 	return &MockStore_GetSummaryStats_Call{Call: _e.mock.On("GetSummaryStats", ctx)}
 }
 
@@ -3131,7 +3209,7 @@ type MockStore_GetWorkflowDefinition_Call struct {
 // GetWorkflowDefinition is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *MockStore_Expecter) GetWorkflowDefinition(ctx interface{}, id interface{}) *MockStore_GetWorkflowDefinition_Call {
+func (_e *MockStore_Expecter) GetWorkflowDefinition(ctx any, id any) *MockStore_GetWorkflowDefinition_Call {
 	return &MockStore_GetWorkflowDefinition_Call{Call: _e.mock.On("GetWorkflowDefinition", ctx, id)}
 }
 
@@ -3198,7 +3276,7 @@ type MockStore_GetWorkflowDefinitions_Call struct {
 
 // GetWorkflowDefinitions is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockStore_Expecter) GetWorkflowDefinitions(ctx interface{}) *MockStore_GetWorkflowDefinitions_Call {
+func (_e *MockStore_Expecter) GetWorkflowDefinitions(ctx any) *MockStore_GetWorkflowDefinitions_Call {
 	return &MockStore_GetWorkflowDefinitions_Call{Call: _e.mock.On("GetWorkflowDefinitions", ctx)}
 }
 
@@ -3261,7 +3339,7 @@ type MockStore_GetWorkflowEvents_Call struct {
 // GetWorkflowEvents is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetWorkflowEvents(ctx interface{}, instanceID interface{}) *MockStore_GetWorkflowEvents_Call {
+func (_e *MockStore_Expecter) GetWorkflowEvents(ctx any, instanceID any) *MockStore_GetWorkflowEvents_Call {
 	return &MockStore_GetWorkflowEvents_Call{Call: _e.mock.On("GetWorkflowEvents", ctx, instanceID)}
 }
 
@@ -3329,7 +3407,7 @@ type MockStore_GetWorkflowInstances_Call struct {
 // GetWorkflowInstances is a helper method to define mock.On call
 //   - ctx context.Context
 //   - workflowID string
-func (_e *MockStore_Expecter) GetWorkflowInstances(ctx interface{}, workflowID interface{}) *MockStore_GetWorkflowInstances_Call {
+func (_e *MockStore_Expecter) GetWorkflowInstances(ctx any, workflowID any) *MockStore_GetWorkflowInstances_Call {
 	return &MockStore_GetWorkflowInstances_Call{Call: _e.mock.On("GetWorkflowInstances", ctx, workflowID)}
 }
 
@@ -3405,7 +3483,7 @@ type MockStore_GetWorkflowInstancesPaginated_Call struct {
 //   - workflowID string
 //   - offset int
 //   - limit int
-func (_e *MockStore_Expecter) GetWorkflowInstancesPaginated(ctx interface{}, workflowID interface{}, offset interface{}, limit interface{}) *MockStore_GetWorkflowInstancesPaginated_Call {
+func (_e *MockStore_Expecter) GetWorkflowInstancesPaginated(ctx any, workflowID any, offset any, limit any) *MockStore_GetWorkflowInstancesPaginated_Call {
 	return &MockStore_GetWorkflowInstancesPaginated_Call{Call: _e.mock.On("GetWorkflowInstancesPaginated", ctx, workflowID, offset, limit)}
 }
 
@@ -3482,7 +3560,7 @@ type MockStore_GetWorkflowStats_Call struct {
 
 // GetWorkflowStats is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockStore_Expecter) GetWorkflowStats(ctx interface{}) *MockStore_GetWorkflowStats_Call {
+func (_e *MockStore_Expecter) GetWorkflowStats(ctx any) *MockStore_GetWorkflowStats_Call {
 	return &MockStore_GetWorkflowStats_Call{Call: _e.mock.On("GetWorkflowStats", ctx)}
 }
 
@@ -3545,7 +3623,7 @@ type MockStore_GetWorkflowSteps_Call struct {
 // GetWorkflowSteps is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) GetWorkflowSteps(ctx interface{}, instanceID interface{}) *MockStore_GetWorkflowSteps_Call {
+func (_e *MockStore_Expecter) GetWorkflowSteps(ctx any, instanceID any) *MockStore_GetWorkflowSteps_Call {
 	return &MockStore_GetWorkflowSteps_Call{Call: _e.mock.On("GetWorkflowSteps", ctx, instanceID)}
 }
 
@@ -3620,7 +3698,7 @@ type MockStore_ListDeadLetters_Call struct {
 //   - ctx context.Context
 //   - offset int
 //   - limit int
-func (_e *MockStore_Expecter) ListDeadLetters(ctx interface{}, offset interface{}, limit interface{}) *MockStore_ListDeadLetters_Call {
+func (_e *MockStore_Expecter) ListDeadLetters(ctx any, offset any, limit any) *MockStore_ListDeadLetters_Call {
 	return &MockStore_ListDeadLetters_Call{Call: _e.mock.On("ListDeadLetters", ctx, offset, limit)}
 }
 
@@ -3685,7 +3763,7 @@ type MockStore_LogEvent_Call struct {
 //   - stepID *int64
 //   - eventType string
 //   - payload any
-func (_e *MockStore_Expecter) LogEvent(ctx interface{}, instanceID interface{}, stepID interface{}, eventType interface{}, payload interface{}) *MockStore_LogEvent_Call {
+func (_e *MockStore_Expecter) LogEvent(ctx any, instanceID any, stepID any, eventType any, payload any) *MockStore_LogEvent_Call {
 	return &MockStore_LogEvent_Call{Call: _e.mock.On("LogEvent", ctx, instanceID, stepID, eventType, payload)}
 }
 
@@ -3757,7 +3835,7 @@ type MockStore_PauseActiveStepsAndClearQueue_Call struct {
 // PauseActiveStepsAndClearQueue is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceID int64
-func (_e *MockStore_Expecter) PauseActiveStepsAndClearQueue(ctx interface{}, instanceID interface{}) *MockStore_PauseActiveStepsAndClearQueue_Call {
+func (_e *MockStore_Expecter) PauseActiveStepsAndClearQueue(ctx any, instanceID any) *MockStore_PauseActiveStepsAndClearQueue_Call {
 	return &MockStore_PauseActiveStepsAndClearQueue_Call{Call: _e.mock.On("PauseActiveStepsAndClearQueue", ctx, instanceID)}
 }
 
@@ -3789,6 +3867,78 @@ func (_c *MockStore_PauseActiveStepsAndClearQueue_Call) RunAndReturn(run func(ct
 	return _c
 }
 
+// QueueItemLockStillOwned provides a mock function for the type MockStore
+func (_mock *MockStore) QueueItemLockStillOwned(ctx context.Context, queueID int64, lockToken string) (bool, error) {
+	ret := _mock.Called(ctx, queueID, lockToken)
+
+	if len(ret) == 0 {
+		panic("no return value specified for QueueItemLockStillOwned")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string) (bool, error)); ok {
+		return returnFunc(ctx, queueID, lockToken)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string) bool); ok {
+		r0 = returnFunc(ctx, queueID, lockToken)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, string) error); ok {
+		r1 = returnFunc(ctx, queueID, lockToken)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_QueueItemLockStillOwned_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'QueueItemLockStillOwned'
+type MockStore_QueueItemLockStillOwned_Call struct {
+	*mock.Call
+}
+
+// QueueItemLockStillOwned is a helper method to define mock.On call
+//   - ctx context.Context
+//   - queueID int64
+//   - lockToken string
+func (_e *MockStore_Expecter) QueueItemLockStillOwned(ctx any, queueID any, lockToken any) *MockStore_QueueItemLockStillOwned_Call {
+	return &MockStore_QueueItemLockStillOwned_Call{Call: _e.mock.On("QueueItemLockStillOwned", ctx, queueID, lockToken)}
+}
+
+func (_c *MockStore_QueueItemLockStillOwned_Call) Run(run func(ctx context.Context, queueID int64, lockToken string)) *MockStore_QueueItemLockStillOwned_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_QueueItemLockStillOwned_Call) Return(b bool, err error) *MockStore_QueueItemLockStillOwned_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockStore_QueueItemLockStillOwned_Call) RunAndReturn(run func(ctx context.Context, queueID int64, lockToken string) (bool, error)) *MockStore_QueueItemLockStillOwned_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ReleaseQueueItem provides a mock function for the type MockStore
 func (_mock *MockStore) ReleaseQueueItem(ctx context.Context, queueID int64) error {
 	ret := _mock.Called(ctx, queueID)
@@ -3814,7 +3964,7 @@ type MockStore_ReleaseQueueItem_Call struct {
 // ReleaseQueueItem is a helper method to define mock.On call
 //   - ctx context.Context
 //   - queueID int64
-func (_e *MockStore_Expecter) ReleaseQueueItem(ctx interface{}, queueID interface{}) *MockStore_ReleaseQueueItem_Call {
+func (_e *MockStore_Expecter) ReleaseQueueItem(ctx any, queueID any) *MockStore_ReleaseQueueItem_Call {
 	return &MockStore_ReleaseQueueItem_Call{Call: _e.mock.On("ReleaseQueueItem", ctx, queueID)}
 }
 
@@ -3871,7 +4021,7 @@ type MockStore_RemoveFromQueue_Call struct {
 // RemoveFromQueue is a helper method to define mock.On call
 //   - ctx context.Context
 //   - queueID int64
-func (_e *MockStore_Expecter) RemoveFromQueue(ctx interface{}, queueID interface{}) *MockStore_RemoveFromQueue_Call {
+func (_e *MockStore_Expecter) RemoveFromQueue(ctx any, queueID any) *MockStore_RemoveFromQueue_Call {
 	return &MockStore_RemoveFromQueue_Call{Call: _e.mock.On("RemoveFromQueue", ctx, queueID)}
 }
 
@@ -3931,7 +4081,7 @@ type MockStore_ReplaceInJoinWaitFor_Call struct {
 //   - joinStepName string
 //   - virtualStep string
 //   - realStep string
-func (_e *MockStore_Expecter) ReplaceInJoinWaitFor(ctx interface{}, instanceID interface{}, joinStepName interface{}, virtualStep interface{}, realStep interface{}) *MockStore_ReplaceInJoinWaitFor_Call {
+func (_e *MockStore_Expecter) ReplaceInJoinWaitFor(ctx any, instanceID any, joinStepName any, virtualStep any, realStep any) *MockStore_ReplaceInJoinWaitFor_Call {
 	return &MockStore_ReplaceInJoinWaitFor_Call{Call: _e.mock.On("ReplaceInJoinWaitFor", ctx, instanceID, joinStepName, virtualStep, realStep)}
 }
 
@@ -4004,7 +4154,7 @@ type MockStore_RequeueDeadLetter_Call struct {
 //   - ctx context.Context
 //   - dlqID int64
 //   - newInput *json.RawMessage
-func (_e *MockStore_Expecter) RequeueDeadLetter(ctx interface{}, dlqID interface{}, newInput interface{}) *MockStore_RequeueDeadLetter_Call {
+func (_e *MockStore_Expecter) RequeueDeadLetter(ctx any, dlqID any, newInput any) *MockStore_RequeueDeadLetter_Call {
 	return &MockStore_RequeueDeadLetter_Call{Call: _e.mock.On("RequeueDeadLetter", ctx, dlqID, newInput)}
 }
 
@@ -4067,7 +4217,7 @@ type MockStore_RescheduleAndReleaseQueueItem_Call struct {
 //   - ctx context.Context
 //   - queueID int64
 //   - delay time.Duration
-func (_e *MockStore_Expecter) RescheduleAndReleaseQueueItem(ctx interface{}, queueID interface{}, delay interface{}) *MockStore_RescheduleAndReleaseQueueItem_Call {
+func (_e *MockStore_Expecter) RescheduleAndReleaseQueueItem(ctx any, queueID any, delay any) *MockStore_RescheduleAndReleaseQueueItem_Call {
 	return &MockStore_RescheduleAndReleaseQueueItem_Call{Call: _e.mock.On("RescheduleAndReleaseQueueItem", ctx, queueID, delay)}
 }
 
@@ -4129,7 +4279,7 @@ type MockStore_SaveWorkflowDefinition_Call struct {
 // SaveWorkflowDefinition is a helper method to define mock.On call
 //   - ctx context.Context
 //   - def *WorkflowDefinition
-func (_e *MockStore_Expecter) SaveWorkflowDefinition(ctx interface{}, def interface{}) *MockStore_SaveWorkflowDefinition_Call {
+func (_e *MockStore_Expecter) SaveWorkflowDefinition(ctx any, def any) *MockStore_SaveWorkflowDefinition_Call {
 	return &MockStore_SaveWorkflowDefinition_Call{Call: _e.mock.On("SaveWorkflowDefinition", ctx, def)}
 }
 
@@ -4174,7 +4324,7 @@ type MockStore_SetAgingEnabled_Call struct {
 
 // SetAgingEnabled is a helper method to define mock.On call
 //   - enabled bool
-func (_e *MockStore_Expecter) SetAgingEnabled(enabled interface{}) *MockStore_SetAgingEnabled_Call {
+func (_e *MockStore_Expecter) SetAgingEnabled(enabled any) *MockStore_SetAgingEnabled_Call {
 	return &MockStore_SetAgingEnabled_Call{Call: _e.mock.On("SetAgingEnabled", enabled)}
 }
 
@@ -4214,7 +4364,7 @@ type MockStore_SetAgingRate_Call struct {
 
 // SetAgingRate is a helper method to define mock.On call
 //   - rate float64
-func (_e *MockStore_Expecter) SetAgingRate(rate interface{}) *MockStore_SetAgingRate_Call {
+func (_e *MockStore_Expecter) SetAgingRate(rate any) *MockStore_SetAgingRate_Call {
 	return &MockStore_SetAgingRate_Call{Call: _e.mock.On("SetAgingRate", rate)}
 }
 
@@ -4269,7 +4419,7 @@ type MockStore_UpdateInstanceStatus_Call struct {
 //   - status WorkflowStatus
 //   - output json.RawMessage
 //   - errMsg *string
-func (_e *MockStore_Expecter) UpdateInstanceStatus(ctx interface{}, instanceID interface{}, status interface{}, output interface{}, errMsg interface{}) *MockStore_UpdateInstanceStatus_Call {
+func (_e *MockStore_Expecter) UpdateInstanceStatus(ctx any, instanceID any, status any, output any, errMsg any) *MockStore_UpdateInstanceStatus_Call {
 	return &MockStore_UpdateInstanceStatus_Call{Call: _e.mock.On("UpdateInstanceStatus", ctx, instanceID, status, output, errMsg)}
 }
 
@@ -4353,7 +4503,7 @@ type MockStore_UpdateJoinState_Call struct {
 //   - joinStepName string
 //   - completedStep string
 //   - success bool
-func (_e *MockStore_Expecter) UpdateJoinState(ctx interface{}, instanceID interface{}, joinStepName interface{}, completedStep interface{}, success interface{}) *MockStore_UpdateJoinState_Call {
+func (_e *MockStore_Expecter) UpdateJoinState(ctx any, instanceID any, joinStepName any, completedStep any, success any) *MockStore_UpdateJoinState_Call {
 	return &MockStore_UpdateJoinState_Call{Call: _e.mock.On("UpdateJoinState", ctx, instanceID, joinStepName, completedStep, success)}
 }
 
@@ -4428,7 +4578,7 @@ type MockStore_UpdateStep_Call struct {
 //   - status StepStatus
 //   - output json.RawMessage
 //   - errMsg *string
-func (_e *MockStore_Expecter) UpdateStep(ctx interface{}, stepID interface{}, status interface{}, output interface{}, errMsg interface{}) *MockStore_UpdateStep_Call {
+func (_e *MockStore_Expecter) UpdateStep(ctx any, stepID any, status any, output any, errMsg any) *MockStore_UpdateStep_Call {
 	return &MockStore_UpdateStep_Call{Call: _e.mock.On("UpdateStep", ctx, stepID, status, output, errMsg)}
 }
 
@@ -4502,7 +4652,7 @@ type MockStore_UpdateStepCompensationRetry_Call struct {
 //   - stepID int64
 //   - retryCount int
 //   - status StepStatus
-func (_e *MockStore_Expecter) UpdateStepCompensationRetry(ctx interface{}, stepID interface{}, retryCount interface{}, status interface{}) *MockStore_UpdateStepCompensationRetry_Call {
+func (_e *MockStore_Expecter) UpdateStepCompensationRetry(ctx any, stepID any, retryCount any, status any) *MockStore_UpdateStepCompensationRetry_Call {
 	return &MockStore_UpdateStepCompensationRetry_Call{Call: _e.mock.On("UpdateStepCompensationRetry", ctx, stepID, retryCount, status)}
 }
 
@@ -4570,7 +4720,7 @@ type MockStore_UpdateStepStatus_Call struct {
 //   - ctx context.Context
 //   - stepID int64
 //   - status StepStatus
-func (_e *MockStore_Expecter) UpdateStepStatus(ctx interface{}, stepID interface{}, status interface{}) *MockStore_UpdateStepStatus_Call {
+func (_e *MockStore_Expecter) UpdateStepStatus(ctx any, stepID any, status any) *MockStore_UpdateStepStatus_Call {
 	return &MockStore_UpdateStepStatus_Call{Call: _e.mock.On("UpdateStepStatus", ctx, stepID, status)}
 }
 
@@ -4675,9 +4825,9 @@ type MockTx_Exec_Call struct {
 //   - ctx context.Context
 //   - sql string
 //   - args ...any
-func (_e *MockTx_Expecter) Exec(ctx interface{}, sql interface{}, args ...interface{}) *MockTx_Exec_Call {
+func (_e *MockTx_Expecter) Exec(ctx any, sql any, args ...any) *MockTx_Exec_Call {
 	return &MockTx_Exec_Call{Call: _e.mock.On("Exec",
-		append([]interface{}{ctx, sql}, args...)...)}
+		append([]any{ctx, sql}, args...)...)}
 }
 
 func (_c *MockTx_Exec_Call) Run(run func(ctx context.Context, sql string, args ...any)) *MockTx_Exec_Call {
@@ -4758,9 +4908,9 @@ type MockTx_Query_Call struct {
 //   - ctx context.Context
 //   - sql string
 //   - args ...any
-func (_e *MockTx_Expecter) Query(ctx interface{}, sql interface{}, args ...interface{}) *MockTx_Query_Call {
+func (_e *MockTx_Expecter) Query(ctx any, sql any, args ...any) *MockTx_Query_Call {
 	return &MockTx_Query_Call{Call: _e.mock.On("Query",
-		append([]interface{}{ctx, sql}, args...)...)}
+		append([]any{ctx, sql}, args...)...)}
 }
 
 func (_c *MockTx_Query_Call) Run(run func(ctx context.Context, sql string, args ...any)) *MockTx_Query_Call {
@@ -4832,9 +4982,9 @@ type MockTx_QueryRow_Call struct {
 //   - ctx context.Context
 //   - sql string
 //   - args ...any
-func (_e *MockTx_Expecter) QueryRow(ctx interface{}, sql interface{}, args ...interface{}) *MockTx_QueryRow_Call {
+func (_e *MockTx_Expecter) QueryRow(ctx any, sql any, args ...any) *MockTx_QueryRow_Call {
 	return &MockTx_QueryRow_Call{Call: _e.mock.On("QueryRow",
-		append([]interface{}{ctx, sql}, args...)...)}
+		append([]any{ctx, sql}, args...)...)}
 }
 
 func (_c *MockTx_QueryRow_Call) Run(run func(ctx context.Context, sql string, args ...any)) *MockTx_QueryRow_Call {
@@ -4899,7 +5049,7 @@ type MockTx_SendBatch_Call struct {
 // SendBatch is a helper method to define mock.On call
 //   - ctx context.Context
 //   - b *pgx.Batch
-func (_e *MockTx_Expecter) SendBatch(ctx interface{}, b interface{}) *MockTx_SendBatch_Call {
+func (_e *MockTx_Expecter) SendBatch(ctx any, b any) *MockTx_SendBatch_Call {
 	return &MockTx_SendBatch_Call{Call: _e.mock.On("SendBatch", ctx, b)}
 }
 
@@ -4983,7 +5133,7 @@ type MockTxManager_ReadCommitted_Call struct {
 // ReadCommitted is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fn func(ctx context.Context) error
-func (_e *MockTxManager_Expecter) ReadCommitted(ctx interface{}, fn interface{}) *MockTxManager_ReadCommitted_Call {
+func (_e *MockTxManager_Expecter) ReadCommitted(ctx any, fn any) *MockTxManager_ReadCommitted_Call {
 	return &MockTxManager_ReadCommitted_Call{Call: _e.mock.On("ReadCommitted", ctx, fn)}
 }
 
@@ -5040,7 +5190,7 @@ type MockTxManager_RepeatableRead_Call struct {
 // RepeatableRead is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fn func(ctx context.Context) error
-func (_e *MockTxManager_Expecter) RepeatableRead(ctx interface{}, fn interface{}) *MockTxManager_RepeatableRead_Call {
+func (_e *MockTxManager_Expecter) RepeatableRead(ctx any, fn any) *MockTxManager_RepeatableRead_Call {
 	return &MockTxManager_RepeatableRead_Call{Call: _e.mock.On("RepeatableRead", ctx, fn)}
 }
 

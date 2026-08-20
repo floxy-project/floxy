@@ -161,6 +161,7 @@ type QueueItem struct {
 	AttemptedAt *time.Time `json:"attempted_at"`
 	AttemptedBy *string    `json:"attempted_by"`
 	LockedUntil *time.Time `json:"locked_until,omitempty"`
+	LockToken   *string    `json:"lock_token,omitempty"`
 	Priority    int        `json:"priority"`
 }
 
