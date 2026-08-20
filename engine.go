@@ -397,7 +397,7 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 		if step.Status == StepStatusSkipped ||
 			step.Status == StepStatusPaused ||
 			step.Status == StepStatusRolledBack {
-			if err := engine.store.RemoveFromQueue(ctx, step.ID); err != nil {
+			if err := engine.store.RemoveFromQueue(ctx, item.ID); err != nil {
 				return fmt.Errorf("remove step from queue: %w", err)
 			}
 
