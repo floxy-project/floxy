@@ -620,6 +620,7 @@ func (engine *Engine) executePreparedTask(ctx context.Context, item *QueueItem, 
 		}
 
 		if task.stepErr != nil {
+			// PLUGIN HOOK: OnStepFailed
 			if engine.pluginManager != nil {
 				if errPlugin := engine.pluginManager.ExecuteStepFailed(ctx, task.instance, task.step, task.stepErr); errPlugin != nil {
 					slog.Warn("[floxy] plugin hook OnStepFailed failed", "error", errPlugin)
@@ -629,6 +630,7 @@ func (engine *Engine) executePreparedTask(ctx context.Context, item *QueueItem, 
 			return engine.handleStepFailure(ctx, task.instance, task.step, task.stepDef, task.stepErr)
 		}
 
+		// PLUGIN HOOK: OnStepComplete
 		if engine.pluginManager != nil {
 			if err := engine.pluginManager.ExecuteStepComplete(ctx, task.instance, task.step); err != nil {
 				slog.Warn("[floxy] plugin hook OnStepComplete failed", "error", err)
