@@ -3,6 +3,7 @@ package floxy
 import (
 	"context"
 	"encoding/json"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -154,6 +155,44 @@ func TestEngineExecuteNext_ExtendsQueueLockWhileHandlerRuns(t *testing.T) {
 	}
 }
 
+func TestEngineExecuteNext_TaskHandlerRunsOutsideTransaction(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStore()
+	txManager := &trackingTxManager{}
+	engine := NewEngine(nil,
+		WithEngineStore(store),
+		WithEngineTxManager(txManager),
+	)
+	defer engine.Shutdown()
+
+	handler := &txAwareHandler{
+		inTx:     &txManager.inTx,
+		observed: make(chan bool, 1),
+	}
+	engine.RegisterHandler(handler)
+
+	workflow, err := NewBuilder("outside-tx", 1, WithWorkflowLockTimeout(time.Minute)).
+		Step("start", handler.Name()).
+		Build()
+	require.NoError(t, err)
+	require.NoError(t, engine.RegisterWorkflow(ctx, workflow))
+
+	_, err = engine.Start(ctx, workflow.ID, json.RawMessage(`{"ok":true}`))
+	require.NoError(t, err)
+
+	empty, err := engine.ExecuteNext(ctx, "worker-1")
+	require.NoError(t, err)
+	require.False(t, empty)
+
+	select {
+	case observedInTx := <-handler.observed:
+		require.False(t, observedInTx)
+	default:
+		t.Fatal("handler did not run")
+	}
+	require.GreaterOrEqual(t, txManager.readCommittedCalls.Load(), int32(3))
+}
+
 func TestMemoryStoreDequeueStep_AllowsParallelQueueItemsForSameInstance(t *testing.T) {
 	ctx := context.Background()
 	store := NewMemoryStore()
@@ -217,6 +256,41 @@ func TestSQLiteStoreDequeueStep_AllowsParallelQueueItemsForSameInstance(t *testi
 	require.NotEqual(t, item1.ID, item2.ID)
 	require.Equal(t, instance.ID, item1.InstanceID)
 	require.Equal(t, instance.ID, item2.InstanceID)
+}
+
+type trackingTxManager struct {
+	inTx               atomic.Bool
+	readCommittedCalls atomic.Int32
+}
+
+func (m *trackingTxManager) ReadCommitted(ctx context.Context, fn func(ctx context.Context) error) error {
+	m.readCommittedCalls.Add(1)
+	m.inTx.Store(true)
+	defer m.inTx.Store(false)
+
+	return fn(ctx)
+}
+
+func (m *trackingTxManager) RepeatableRead(ctx context.Context, fn func(ctx context.Context) error) error {
+	m.inTx.Store(true)
+	defer m.inTx.Store(false)
+
+	return fn(ctx)
+}
+
+type txAwareHandler struct {
+	inTx     *atomic.Bool
+	observed chan bool
+}
+
+func (h *txAwareHandler) Name() string {
+	return "tx-aware"
+}
+
+func (h *txAwareHandler) Execute(ctx context.Context, stepCtx StepContext, input json.RawMessage) (json.RawMessage, error) {
+	h.observed <- h.inTx.Load()
+
+	return input, nil
 }
 
 type blockingLockHandler struct {

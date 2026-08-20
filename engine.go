@@ -341,6 +341,7 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 	stopHeartbeat := engine.startQueueItemLockHeartbeat(ctx, item)
 	defer stopHeartbeat()
 
+	var taskExecution *preparedTaskExecution
 	removeFromQueue := true
 	err = engine.txManager.ReadCommitted(ctx, func(ctx context.Context) error {
 		if engine.isShutdown() {
@@ -499,6 +500,25 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 			}
 		}
 
+		if step.StepType == StepTypeTask {
+			taskExecution = &preparedTaskExecution{
+				instance: instance,
+				step:     step,
+				stepDef:  stepDef,
+			}
+			if err := engine.prepareTaskExecution(ctx, taskExecution); err != nil {
+				return err
+			}
+			if taskExecution.skipHandler {
+				taskExecution = nil
+
+				return nil
+			}
+			removeFromQueue = false
+
+			return nil
+		}
+
 		err = engine.executeStep(ctx, instance, step, item)
 		if errors.Is(err, ErrQueueItemLockLost) {
 			removeFromQueue = false
@@ -514,7 +534,116 @@ func (engine *Engine) ExecuteNext(ctx context.Context, workerID string) (empty b
 		return empty, err
 	}
 
+	if taskExecution != nil {
+		err = engine.executePreparedTask(ctx, item, taskExecution)
+		if err != nil {
+			if !errors.Is(err, ErrQueueItemLockLost) {
+				_ = engine.store.ReleaseQueueItem(ctx, item.ID)
+			}
+
+			return empty, err
+		}
+	}
+
 	return empty, nil
+}
+
+type preparedTaskExecution struct {
+	instance    *WorkflowInstance
+	step        *WorkflowStep
+	stepDef     *StepDefinition
+	output      json.RawMessage
+	stepErr     error
+	skipHandler bool
+}
+
+func (engine *Engine) prepareTaskExecution(ctx context.Context, task *preparedTaskExecution) error {
+	if engine.pluginManager != nil {
+		if err := engine.pluginManager.ExecuteStepStart(ctx, task.instance, task.step); err != nil {
+			return fmt.Errorf("plugin hook OnStepStart failed: %w", err)
+		}
+	}
+
+	cancelReq, err := engine.store.GetCancelRequest(ctx, task.instance.ID)
+	if err == nil && cancelReq != nil {
+		task.skipHandler = true
+
+		return engine.handleCancellation(ctx, task.instance, task.step, cancelReq)
+	}
+
+	if err := engine.store.UpdateStep(ctx, task.step.ID, StepStatusRunning, nil, nil); err != nil {
+		return fmt.Errorf("update step status: %w", err)
+	}
+
+	_ = engine.store.LogEvent(ctx, task.instance.ID, &task.step.ID, EventStepStarted, map[string]any{
+		KeyStepName: task.step.StepName,
+		KeyStepType: task.stepDef.Type,
+	})
+
+	return nil
+}
+
+func (engine *Engine) executePreparedTask(ctx context.Context, item *QueueItem, task *preparedTaskExecution) error {
+	handlerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	engine.registerInstanceContext(task.instance.ID, task.step.ID, cancel)
+	defer engine.unregisterInstanceContext(task.instance.ID, task.step.ID)
+
+	if task.stepDef.Timeout != 0 {
+		var timeoutCancel context.CancelFunc
+		handlerCtx, timeoutCancel = context.WithTimeout(handlerCtx, task.stepDef.Timeout)
+		defer timeoutCancel()
+	}
+
+	task.output, task.stepErr = engine.executeTask(handlerCtx, task.instance, task.step, task.stepDef)
+
+	removeFromQueue := true
+	err := engine.txManager.ReadCommitted(ctx, func(ctx context.Context) error {
+		if err := engine.ensureQueueItemLock(ctx, item); err != nil {
+			removeFromQueue = false
+
+			return err
+		}
+
+		defer func() {
+			if removeFromQueue {
+				_ = engine.store.RemoveFromQueue(ctx, item.ID)
+			}
+		}()
+
+		if errors.Is(handlerCtx.Err(), context.Canceled) {
+			cancelReq, err := engine.store.GetCancelRequest(ctx, task.instance.ID)
+			if err == nil && cancelReq != nil {
+				return engine.handleCancellation(ctx, task.instance, task.step, cancelReq)
+			}
+		}
+
+		if task.stepErr != nil {
+			// PLUGIN HOOK: OnStepFailed
+			if engine.pluginManager != nil {
+				if errPlugin := engine.pluginManager.ExecuteStepFailed(ctx, task.instance, task.step, task.stepErr); errPlugin != nil {
+					slog.Warn("[floxy] plugin hook OnStepFailed failed", "error", errPlugin)
+				}
+			}
+
+			return engine.handleStepFailure(ctx, task.instance, task.step, task.stepDef, task.stepErr)
+		}
+
+		// PLUGIN HOOK: OnStepComplete
+		if engine.pluginManager != nil {
+			if err := engine.pluginManager.ExecuteStepComplete(ctx, task.instance, task.step); err != nil {
+				slog.Warn("[floxy] plugin hook OnStepComplete failed", "error", err)
+			}
+		}
+
+		return engine.handleStepSuccess(ctx, task.instance, task.step, task.stepDef, task.output, true)
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (engine *Engine) startQueueItemLockHeartbeat(ctx context.Context, item *QueueItem) func() {
