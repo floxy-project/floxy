@@ -19,7 +19,7 @@ services:
       - "5435:5432"
 
   floxy-ui:
-    image: rom8726/floxy-ui:latest
+    image: ghcr.io/floxy-project/floxy-ui:latest
     container_name: floxy-ui
     restart: always
     environment:
