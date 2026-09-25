@@ -193,7 +193,7 @@ func (store *StoreImpl) UpdateInstanceStatus(
 	const query = `
 UPDATE workflows.workflow_instances
 SET status = $2, output = $3, error = $4, updated_at = $5,
-	completed_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN $5 ELSE completed_at END,
+	completed_at = CASE WHEN $2 IN ('completed', 'completed_with_errors', 'failed', 'cancelled') THEN $5 ELSE completed_at END,
 	started_at = CASE WHEN started_at IS NULL AND $2 = 'running' THEN $5 ELSE started_at END
 WHERE id = $1`
 

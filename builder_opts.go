@@ -82,3 +82,9 @@ func WithWorkflowLockTimeout(timeout time.Duration) BuilderOption {
 		builder.workflowLockTimeout = timeout
 	}
 }
+
+func WithFailurePolicy(policy FailurePolicy) BuilderOption {
+	return func(builder *Builder) {
+		builder.failurePolicy = policy
+	}
+}

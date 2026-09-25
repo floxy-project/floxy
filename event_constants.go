@@ -33,6 +33,7 @@ const (
 	KeyStrategy      = "strategy"
 	KeyCompleted     = "completed"
 	KeyFailed        = "failed"
+	KeyFailedSteps   = "failed_steps"
 	KeyIsReady       = "is_ready"
 	KeyOutputs       = "outputs"
 	KeyStatus        = "status"

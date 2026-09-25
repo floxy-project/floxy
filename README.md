@@ -34,6 +34,7 @@ Floxy is under active development, and its APIs and behavior may evolve between 
 - [Integration Tests](#integration-tests)
 - [Database Migrations](#database-migrations)
 - [Dead Letter Queue](#dead-letter-queue-dlq)
+- [Partial Success](#partial-success)
 - [Known Issues](#known-issues)
   - [Condition Steps in Forked Branches](#condition-steps-in-forked-branches)
   - [Rollback for nested Fork/Join branches](#rollback-for-nested-fork-/-join-branches)
@@ -53,6 +54,7 @@ Floxy is under active development, and its APIs and behavior may evolve between 
 - **Human-in-the-loop**: Interactive workflow steps that pause execution for human decisions
 - **Cancel\Abort**: Possibility to cancel workflow with rollback to the root step and immediate abort workflow
 - **Dead Letter Queue (DLQ)**: Two modes for error handling - Classic Saga with rollback/compensation or DLQ Mode with paused workflow and manual recovery
+- **Partial Success**: Opt-in failure policy for batch processing - failed parallel branches don't stop siblings or trigger rollback, workflow finishes as `completed_with_errors`
 - **Distributed Mode**: Microservices can register only their handlers; steps without local handlers are returned to queue for other services to process
 - **Priority Aging**: Prevents queue starvation by gradually increasing step priority as waiting time increases
 - **PostgreSQL Storage**: Persistent workflow state and event logging
@@ -405,6 +407,40 @@ err = engine.RequeueFromDLQ(ctx, dlqID, &newInput)
 
 // Workflow resumes from where it paused
 ```
+
+## Partial Success
+
+### Overview
+
+By default floxy uses saga semantics: a failed step (after retries are exhausted) stops parallel siblings and triggers rollback/compensation. For batch processing, where parallel branches are independent and successful results are valuable on their own, use the partial success failure policy:
+
+```go
+workflow, err := floxy.NewBuilder("batch-job", 1,
+    floxy.WithFailurePolicy(floxy.FailurePolicyPartialSuccess),
+).
+    Fork("process-items",
+        func(b *floxy.Builder) { b.Step("item1", "handler") },
+        func(b *floxy.Builder) { b.Step("item2", "handler") },
+        func(b *floxy.Builder) { b.Step("item3", "handler") },
+    ).
+    Join("collect", floxy.JoinStrategyAll).
+    Then("report", "report-handler").
+    Build()
+```
+
+Available policies: `FailurePolicySaga` (default) and `FailurePolicyPartialSuccess`.
+
+### Behavior
+
+When a step fails after all retries:
+
+- **Inside a Fork branch**: the step is marked `failed`, the rest of its branch is not executed, the Join is notified about the failed branch, neighboring branches keep running. No rollback or compensation is performed.
+- **Join step**: does not fail when some branches failed. Its output contains `outputs` of successful branches, `failed` with names of failed steps and `status: "completed_with_errors"`. Execution continues with the steps after the Join.
+- **Outside of Fork branches**: the workflow can not continue, so it is marked `failed`, but without rollback/compensation of already completed steps.
+
+When the workflow reaches its end and some steps failed, it finishes with the `completed_with_errors` status and the instance error lists the failed steps (e.g. `failed steps: item2`). If there were no failures, the status is `completed`.
+
+`FailurePolicyPartialSuccess` can not be combined with `WithDLQEnabled(true)`.
 
 ## Known Issues
 

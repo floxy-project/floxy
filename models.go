@@ -18,15 +18,16 @@ const (
 type WorkflowStatus string
 
 const (
-	StatusPending     WorkflowStatus = "pending"
-	StatusRunning     WorkflowStatus = "running"
-	StatusCompleted   WorkflowStatus = "completed"
-	StatusFailed      WorkflowStatus = "failed"
-	StatusRollingBack WorkflowStatus = "rolling_back"
-	StatusCancelling  WorkflowStatus = "cancelling"
-	StatusCancelled   WorkflowStatus = "cancelled"
-	StatusAborted     WorkflowStatus = "aborted"
-	StatusDLQ         WorkflowStatus = "dlq"
+	StatusPending             WorkflowStatus = "pending"
+	StatusRunning             WorkflowStatus = "running"
+	StatusCompleted           WorkflowStatus = "completed"
+	StatusCompletedWithErrors WorkflowStatus = "completed_with_errors"
+	StatusFailed              WorkflowStatus = "failed"
+	StatusRollingBack         WorkflowStatus = "rolling_back"
+	StatusCancelling          WorkflowStatus = "cancelling"
+	StatusCancelled           WorkflowStatus = "cancelled"
+	StatusAborted             WorkflowStatus = "aborted"
+	StatusDLQ                 WorkflowStatus = "dlq"
 )
 
 type StepStatus string
@@ -64,6 +65,13 @@ const (
 	JoinStrategyAny JoinStrategy = "any"
 )
 
+type FailurePolicy string
+
+const (
+	FailurePolicySaga           FailurePolicy = "saga"
+	FailurePolicyPartialSuccess FailurePolicy = "partial_success"
+)
+
 type HumanDecision string
 
 const (
@@ -99,6 +107,11 @@ type GraphDefinition struct {
 	Start               string                     `json:"start"`
 	DLQEnabled          bool                       `json:"dlq_enabled"`
 	WorkflowLockTimeout time.Duration              `json:"workflow_lock_timeout,omitempty"`
+	FailurePolicy       FailurePolicy              `json:"failure_policy,omitempty"`
+}
+
+func (d GraphDefinition) IsPartialSuccess() bool {
+	return d.FailurePolicy == FailurePolicyPartialSuccess
 }
 
 type StepDefinition struct {

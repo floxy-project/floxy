@@ -171,11 +171,11 @@ func (s *SQLiteStore) CreateInstance(ctx context.Context, workflowID string, inp
 
 func (s *SQLiteStore) UpdateInstanceStatus(ctx context.Context, instanceID int64, status WorkflowStatus, output json.RawMessage, errMsg *string) error {
 	now := time.Now()
-	// Update completed_at when status is completed, failed, or cancelled
+	// Update completed_at when status is completed, completed_with_errors, failed, or cancelled
 	// Update started_at when status is running and started_at is NULL
 	const query = `UPDATE workflow_instances 
 		SET status=?, output=?, error=?, updated_at=?,
-			completed_at = CASE WHEN ? IN ('completed', 'failed', 'cancelled') THEN ? ELSE completed_at END,
+			completed_at = CASE WHEN ? IN ('completed', 'completed_with_errors', 'failed', 'cancelled') THEN ? ELSE completed_at END,
 			started_at = CASE WHEN started_at IS NULL AND ? = 'running' THEN ? ELSE started_at END
 		WHERE id=?`
 	_, err := s.db.ExecContext(

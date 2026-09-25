@@ -1341,3 +1341,74 @@ func (h *SimpleStepHandler) Execute(ctx context.Context, stepCtx StepContext, in
 	time.Sleep(10 * time.Millisecond)
 	return input, nil
 }
+
+func TestIntegration_PartialSuccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
+
+	store, txManager, cleanup := setupTestStore(t)
+	t.Cleanup(cleanup)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	engine := NewEngine(nil,
+		WithEngineStore(store),
+		WithEngineTxManager(txManager),
+		WithEngineCancelInterval(time.Minute),
+	)
+	defer engine.Shutdown()
+
+	comp := &partialCompensateHandler{}
+	engine.RegisterHandler(&partialItemHandler{fail: map[string]bool{"item2": true}})
+	engine.RegisterHandler(comp)
+
+	workflowDef, err := NewBuilder("partial-batch", 1,
+		WithBuilderMaxRetries(0),
+		WithFailurePolicy(FailurePolicyPartialSuccess),
+	).
+		Fork("process",
+			func(b *Builder) {
+				b.Step("item1", "partial-item").
+					OnFailure("item1-comp", "partial-compensate", WithStepMaxRetries(1))
+			},
+			func(b *Builder) { b.Step("item2", "partial-item") },
+			func(b *Builder) { b.Step("item3", "partial-item") },
+		).
+		Join("collect", JoinStrategyAll).
+		Build()
+	require.NoError(t, err)
+	require.NoError(t, engine.RegisterWorkflow(ctx, workflowDef))
+
+	storedDef, err := store.GetWorkflowDefinition(ctx, workflowDef.ID)
+	require.NoError(t, err)
+	assert.Equal(t, FailurePolicyPartialSuccess, storedDef.Definition.FailurePolicy)
+
+	pool := NewWorkerPool(engine, 3, 20*time.Millisecond)
+	pool.Start(ctx)
+	defer pool.Stop()
+
+	res, err := engine.StartAwait(ctx, workflowDef.ID, json.RawMessage(`{"count":1}`))
+	require.NoError(t, err)
+	assert.Equal(t, StatusCompletedWithErrors, res.Status)
+	assert.Equal(t, int32(0), comp.calls.Load())
+
+	instance, err := store.GetInstance(ctx, res.InstanceID)
+	require.NoError(t, err)
+	assert.Equal(t, StatusCompletedWithErrors, instance.Status)
+	assert.NotNil(t, instance.CompletedAt)
+	require.NotNil(t, instance.Error)
+	assert.Contains(t, *instance.Error, "item2")
+
+	steps, err := store.GetStepsByInstance(ctx, res.InstanceID)
+	require.NoError(t, err)
+	statuses := make(map[string]StepStatus, len(steps))
+	for _, s := range steps {
+		statuses[s.StepName] = s.Status
+	}
+	assert.Equal(t, StepStatusCompleted, statuses["item1"])
+	assert.Equal(t, StepStatusFailed, statuses["item2"])
+	assert.Equal(t, StepStatusCompleted, statuses["item3"])
+	assert.Equal(t, StepStatusCompleted, statuses["collect"])
+}

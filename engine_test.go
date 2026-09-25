@@ -935,6 +935,7 @@ func TestEngine_ExecuteJoin_WithFailures(t *testing.T) {
 	mockStore.EXPECT().GetJoinState(mock.Anything, instanceID, "join-step").Return(joinState, nil)
 	mockStore.EXPECT().LogEvent(mock.Anything, instanceID, &stepID, EventJoinCheck, mock.Anything).Return(nil)
 	mockStore.EXPECT().GetStepsByInstance(mock.Anything, instanceID).Return(steps, nil)
+	mockStore.EXPECT().GetWorkflowDefinition(mock.Anything, "test-workflow").Return(&WorkflowDefinition{ID: "test-workflow"}, nil)
 
 	output, err := engine.executeJoin(context.Background(), instance, step, nil)
 
