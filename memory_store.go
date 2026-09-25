@@ -149,7 +149,7 @@ func (s *MemoryStore) UpdateInstanceStatus(
 	instance.Error = errMsg
 	instance.UpdatedAt = time.Now()
 
-	if status == StatusCompleted || status == StatusFailed || status == StatusCancelled {
+	if status == StatusCompleted || status == StatusCompletedWithErrors || status == StatusFailed || status == StatusCancelled {
 		now := time.Now()
 		instance.CompletedAt = &now
 	}

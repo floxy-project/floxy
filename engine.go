@@ -268,7 +268,7 @@ func (engine *Engine) awaitCompletion(ctx context.Context, instanceID int64) (*S
 // isTerminalStatus checks if the workflow status is terminal.
 func (engine *Engine) isTerminalStatus(status WorkflowStatus) bool {
 	switch status {
-	case StatusCompleted, StatusFailed, StatusCancelled, StatusAborted, StatusDLQ:
+	case StatusCompleted, StatusCompletedWithErrors, StatusFailed, StatusCancelled, StatusAborted, StatusDLQ:
 		return true
 	default:
 		return false
@@ -840,6 +840,7 @@ func (engine *Engine) CancelWorkflow(ctx context.Context, instanceID int64, requ
 		}
 
 		if instance.Status == StatusCompleted ||
+			instance.Status == StatusCompletedWithErrors ||
 			instance.Status == StatusFailed ||
 			instance.Status == StatusCancelled ||
 			instance.Status == StatusAborted {
@@ -875,6 +876,7 @@ func (engine *Engine) AbortWorkflow(ctx context.Context, instanceID int64, reque
 		}
 
 		if instance.Status == StatusCompleted ||
+			instance.Status == StatusCompletedWithErrors ||
 			instance.Status == StatusFailed ||
 			instance.Status == StatusCancelled ||
 			instance.Status == StatusAborted {
