@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -1491,6 +1492,14 @@ func (engine *Engine) executeJoin(
 	results[KeyOutputs] = outputs
 
 	if len(joinState.Failed) > 0 && joinState.JoinStrategy == JoinStrategyAll {
+		def, defErr := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID)
+		if defErr == nil && def.Definition.IsPartialSuccess() {
+			results[KeyStatus] = string(StatusCompletedWithErrors)
+			_ = engine.store.LogEvent(ctx, instance.ID, &step.ID, EventJoinCompleted, results)
+
+			return json.Marshal(results)
+		}
+
 		results[KeyStatus] = "failed"
 		failedData, _ := json.Marshal(results)
 
@@ -1796,7 +1805,12 @@ func (engine *Engine) handleStepSuccess(
 	}
 
 	if (next && len(stepDef.Next) == 0) || (!next && stepDef.Else == "") {
-		if !engine.hasUnfinishedSteps(ctx, instance.ID) {
+		unfinished := engine.hasUnfinishedSteps(ctx, instance.ID)
+		if !unfinished && def != nil && def.Definition.IsPartialSuccess() {
+			unfinished = engine.hasStepsAwaitingRetry(ctx, instance.ID)
+		}
+
+		if !unfinished {
 			return engine.completeWorkflow(ctx, instance, output)
 		}
 
@@ -1859,6 +1873,10 @@ func (engine *Engine) handleStepFailure(
 		})
 
 		return engine.store.EnqueueStep(ctx, instance.ID, &step.ID, PriorityHigh, stepDef.Delay)
+	}
+
+	if def, defErr := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID); defErr == nil && def.Definition.IsPartialSuccess() {
+		return engine.handleStepFailurePartial(ctx, instance, step, def, errMsg)
 	}
 
 	// If DLQ mode is enabled, pause instead of failing and skip rollback
@@ -1996,6 +2014,116 @@ func (engine *Engine) handleStepFailure(
 	if engine.pluginManager != nil {
 		finalInstance, _ := engine.store.GetInstance(ctx, instance.ID)
 		if finalInstance != nil {
+			if errPlugin := engine.pluginManager.ExecuteWorkflowFailed(ctx, finalInstance); errPlugin != nil {
+				slog.Warn("[floxy] plugin hook OnWorkflowFailed failed", "error", errPlugin)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (engine *Engine) handleStepFailurePartial(
+	ctx context.Context,
+	instance *WorkflowInstance,
+	step *WorkflowStep,
+	def *WorkflowDefinition,
+	errMsg string,
+) error {
+	if err := engine.store.UpdateStep(ctx, step.ID, StepStatusFailed, nil, &errMsg); err != nil {
+		return fmt.Errorf("update step: %w", err)
+	}
+
+	_ = engine.store.LogEvent(ctx, instance.ID, &step.ID, EventStepFailed, map[string]any{
+		KeyStepName: step.StepName,
+		KeyError:    errMsg,
+		KeyReason:   string(FailurePolicyPartialSuccess),
+	})
+
+	if engine.findForkStepForStepInBranch(step.StepName, def) == "" {
+		return engine.failWorkflowWithoutRollback(ctx, instance, errMsg)
+	}
+
+	joinStepName, err := engine.findJoinStepForForkBranch(ctx, instance.ID, step.StepName, def)
+	if err != nil {
+		return fmt.Errorf("find join step: %w", err)
+	}
+
+	if joinStepName != "" {
+		return engine.notifyJoinAboutBranchFailure(ctx, instance.ID, joinStepName, step.StepName, def)
+	}
+
+	if !engine.hasUnfinishedSteps(ctx, instance.ID) && !engine.hasStepsAwaitingRetry(ctx, instance.ID) {
+		return engine.completeWorkflow(ctx, instance, nil)
+	}
+
+	return nil
+}
+
+func (engine *Engine) notifyJoinAboutBranchFailure(
+	ctx context.Context,
+	instanceID int64,
+	joinStepName, failedStepName string,
+	def *WorkflowDefinition,
+) error {
+	joinState, err := engine.store.GetJoinState(ctx, instanceID, joinStepName)
+	if err != nil {
+		return fmt.Errorf("get join state: %w", err)
+	}
+
+	entry := engine.findJoinEntryForBranchStep(joinState, failedStepName, def)
+	if entry == "" {
+		return nil
+	}
+
+	if entry != failedStepName {
+		if err := engine.store.ReplaceInJoinWaitFor(ctx, instanceID, joinStepName, entry, failedStepName); err != nil {
+			return fmt.Errorf("replace join wait entry: %w", err)
+		}
+	}
+
+	return engine.notifyJoinStepsForStep(ctx, instanceID, joinStepName, failedStepName, false)
+}
+
+func (engine *Engine) findJoinEntryForBranchStep(joinState *JoinState, stepName string, def *WorkflowDefinition) string {
+	resolved := make(map[string]bool, len(joinState.Completed)+len(joinState.Failed))
+	for _, name := range joinState.Completed {
+		resolved[name] = true
+	}
+	for _, name := range joinState.Failed {
+		resolved[name] = true
+	}
+
+	for _, entry := range joinState.WaitingFor {
+		if resolved[entry] {
+			continue
+		}
+
+		target, isVirtual := strings.CutPrefix(entry, "cond#")
+		if engine.isStepReachableFrom(target, stepName, def, make(map[string]bool)) {
+			return entry
+		}
+
+		if isVirtual && engine.isStepReachableFrom(stepName, target, def, make(map[string]bool)) {
+			return entry
+		}
+	}
+
+	return ""
+}
+
+func (engine *Engine) failWorkflowWithoutRollback(ctx context.Context, instance *WorkflowInstance, errMsg string) error {
+	if err := engine.store.UpdateInstanceStatus(ctx, instance.ID, StatusFailed, nil, &errMsg); err != nil {
+		return fmt.Errorf("update instance status: %w", err)
+	}
+
+	_ = engine.store.LogEvent(ctx, instance.ID, nil, EventWorkflowFailed, map[string]any{
+		KeyWorkflowID: instance.WorkflowID,
+		KeyReason:     errMsg,
+	})
+
+	if engine.pluginManager != nil {
+		if finalInstance, _ := engine.store.GetInstance(ctx, instance.ID); finalInstance != nil {
 			if errPlugin := engine.pluginManager.ExecuteWorkflowFailed(ctx, finalInstance); errPlugin != nil {
 				slog.Warn("[floxy] plugin hook OnWorkflowFailed failed", "error", errPlugin)
 			}
@@ -2263,6 +2391,21 @@ func (engine *Engine) hasUnfinishedSteps(ctx context.Context, instanceID int64) 
 	return false
 }
 
+func (engine *Engine) hasStepsAwaitingRetry(ctx context.Context, instanceID int64) bool {
+	steps, err := engine.store.GetStepsByInstance(ctx, instanceID)
+	if err != nil {
+		return false
+	}
+
+	for _, step := range steps {
+		if step.Status == StepStatusFailed && step.RetryCount <= step.MaxRetries {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (engine *Engine) hasFailedOrRolledBackSteps(ctx context.Context, instanceID int64) bool {
 	steps, err := engine.store.GetStepsByInstance(ctx, instanceID)
 	if err != nil {
@@ -2468,6 +2611,12 @@ func (engine *Engine) createFirstStep(ctx context.Context, instance *WorkflowIns
 }
 
 func (engine *Engine) completeWorkflow(ctx context.Context, instance *WorkflowInstance, output json.RawMessage) error {
+	if def, defErr := engine.store.GetWorkflowDefinition(ctx, instance.WorkflowID); defErr == nil && def.Definition.IsPartialSuccess() {
+		if failed := engine.failedStepNames(ctx, instance.ID); len(failed) > 0 {
+			return engine.completeWorkflowWithErrors(ctx, instance, output, failed)
+		}
+	}
+
 	// Check if there are any failed or rolled_back steps
 	// If so, the workflow should be marked as failed, not completed
 	if engine.hasFailedOrRolledBackSteps(ctx, instance.ID) {
@@ -2529,6 +2678,51 @@ func (engine *Engine) completeWorkflow(ctx context.Context, instance *WorkflowIn
 		// Reload instance to get the final state
 		finalInstance, _ := engine.store.GetInstance(ctx, instance.ID)
 		if finalInstance != nil {
+			if errPlugin := engine.pluginManager.ExecuteWorkflowComplete(ctx, finalInstance); errPlugin != nil {
+				slog.Warn("[floxy] plugin hook OnWorkflowComplete failed", "error", errPlugin)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (engine *Engine) failedStepNames(ctx context.Context, instanceID int64) []string {
+	steps, err := engine.store.GetStepsByInstance(ctx, instanceID)
+	if err != nil {
+		return nil
+	}
+
+	var names []string
+	for _, step := range steps {
+		if step.Status == StepStatusFailed {
+			names = append(names, step.StepName)
+		}
+	}
+	sort.Strings(names)
+
+	return names
+}
+
+func (engine *Engine) completeWorkflowWithErrors(
+	ctx context.Context,
+	instance *WorkflowInstance,
+	output json.RawMessage,
+	failed []string,
+) error {
+	errMsg := "failed steps: " + strings.Join(failed, ", ")
+	if err := engine.store.UpdateInstanceStatus(ctx, instance.ID, StatusCompletedWithErrors, output, &errMsg); err != nil {
+		return fmt.Errorf("update instance status: %w", err)
+	}
+
+	_ = engine.store.LogEvent(ctx, instance.ID, nil, EventWorkflowCompleted, map[string]any{
+		KeyWorkflowID:  instance.WorkflowID,
+		KeyStatus:      StatusCompletedWithErrors,
+		KeyFailedSteps: failed,
+	})
+
+	if engine.pluginManager != nil {
+		if finalInstance, _ := engine.store.GetInstance(ctx, instance.ID); finalInstance != nil {
 			if errPlugin := engine.pluginManager.ExecuteWorkflowComplete(ctx, finalInstance); errPlugin != nil {
 				slog.Warn("[floxy] plugin hook OnWorkflowComplete failed", "error", errPlugin)
 			}
