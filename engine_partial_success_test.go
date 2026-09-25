@@ -106,7 +106,7 @@ func TestPartialSuccess_BranchFailureKeepsSiblings(t *testing.T) {
 		Fork("process",
 			func(b *Builder) {
 				b.Step("item1", "partial-item").
-					OnFailure("item1-comp", "partial-compensate")
+					OnFailure("item1-comp", "partial-compensate", WithStepMaxRetries(1))
 			},
 			func(b *Builder) { b.Step("item2", "partial-item") },
 			func(b *Builder) { b.Step("item3", "partial-item") },
@@ -226,7 +226,7 @@ func TestPartialSuccess_RetriesSucceed(t *testing.T) {
 		Fork("process",
 			func(b *Builder) {
 				b.Step("item1", "partial-item").
-					OnFailure("item1-comp", "partial-compensate")
+					OnFailure("item1-comp", "partial-compensate", WithStepMaxRetries(1))
 			},
 			func(b *Builder) {
 				b.Step("item2", "partial-item",
@@ -262,7 +262,7 @@ func TestPartialSuccess_FailureOutsideBranch(t *testing.T) {
 		WithFailurePolicy(FailurePolicyPartialSuccess),
 	).
 		Step("prepare", "partial-item").
-		OnFailure("prepare-comp", "partial-compensate").
+		OnFailure("prepare-comp", "partial-compensate", WithStepMaxRetries(1)).
 		Then("broken", "partial-item").
 		Then("never", "partial-item").
 		Build()

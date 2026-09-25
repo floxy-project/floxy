@@ -1371,7 +1371,7 @@ func TestIntegration_PartialSuccess(t *testing.T) {
 		Fork("process",
 			func(b *Builder) {
 				b.Step("item1", "partial-item").
-					OnFailure("item1-comp", "partial-compensate")
+					OnFailure("item1-comp", "partial-compensate", WithStepMaxRetries(1))
 			},
 			func(b *Builder) { b.Step("item2", "partial-item") },
 			func(b *Builder) { b.Step("item3", "partial-item") },

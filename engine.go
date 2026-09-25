@@ -1805,12 +1805,7 @@ func (engine *Engine) handleStepSuccess(
 	}
 
 	if (next && len(stepDef.Next) == 0) || (!next && stepDef.Else == "") {
-		unfinished := engine.hasUnfinishedSteps(ctx, instance.ID)
-		if !unfinished && def != nil && def.Definition.IsPartialSuccess() {
-			unfinished = engine.hasStepsAwaitingRetry(ctx, instance.ID)
-		}
-
-		if !unfinished {
+		if !engine.hasUnfinishedSteps(ctx, instance.ID) && !engine.hasStepsAwaitingRetry(ctx, instance.ID) {
 			return engine.completeWorkflow(ctx, instance, output)
 		}
 
@@ -2392,6 +2387,11 @@ func (engine *Engine) hasUnfinishedSteps(ctx context.Context, instanceID int64) 
 }
 
 func (engine *Engine) hasStepsAwaitingRetry(ctx context.Context, instanceID int64) bool {
+	instance, err := engine.store.GetInstance(ctx, instanceID)
+	if err != nil || instance.Status != StatusRunning {
+		return false
+	}
+
 	steps, err := engine.store.GetStepsByInstance(ctx, instanceID)
 	if err != nil {
 		return false
