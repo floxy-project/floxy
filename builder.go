@@ -25,6 +25,7 @@ type Builder struct {
 	defaultMaxRetries   int
 	dlqEnabled          bool
 	workflowLockTimeout time.Duration
+	failurePolicy       FailurePolicy
 
 	err error
 }
@@ -544,6 +545,16 @@ func (builder *Builder) Build() (*WorkflowDefinition, error) {
 		return nil, fmt.Errorf("builder %q: at least one step is required", builder.name)
 	}
 
+	switch builder.failurePolicy {
+	case "", FailurePolicySaga, FailurePolicyPartialSuccess:
+	default:
+		return nil, fmt.Errorf("builder %q: unknown failure policy %q", builder.name, builder.failurePolicy)
+	}
+
+	if builder.failurePolicy == FailurePolicyPartialSuccess && builder.dlqEnabled {
+		return nil, fmt.Errorf("builder %q: failure policy %q is incompatible with DLQ mode", builder.name, builder.failurePolicy)
+	}
+
 	id := fmt.Sprintf("%s-v%d", builder.name, builder.version)
 
 	def := &WorkflowDefinition{
@@ -555,6 +566,7 @@ func (builder *Builder) Build() (*WorkflowDefinition, error) {
 			Steps:               builder.steps,
 			DLQEnabled:          builder.dlqEnabled,
 			WorkflowLockTimeout: builder.workflowLockTimeout,
+			FailurePolicy:       builder.failurePolicy,
 		},
 	}
 

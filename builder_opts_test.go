@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithBuilderMaxRetries(t *testing.T) {
@@ -439,4 +440,30 @@ func TestWithStepRetryStrategy(t *testing.T) {
 			assert.Equalf(t, tt.wantStrategy, step.RetryStrategy, "WithStepRetryStrategy(%v)", tt.args.strategy)
 		})
 	}
+}
+
+func TestWithFailurePolicy(t *testing.T) {
+	def, err := NewBuilder("wf", 1, WithFailurePolicy(FailurePolicyPartialSuccess)).
+		Step("a", "h").
+		Build()
+	require.NoError(t, err)
+	assert.Equal(t, FailurePolicyPartialSuccess, def.Definition.FailurePolicy)
+	assert.True(t, def.Definition.IsPartialSuccess())
+
+	def, err = NewBuilder("wf", 1).Step("a", "h").Build()
+	require.NoError(t, err)
+	assert.Equal(t, FailurePolicy(""), def.Definition.FailurePolicy)
+	assert.False(t, def.Definition.IsPartialSuccess())
+
+	def, err = NewBuilder("wf", 1, WithFailurePolicy(FailurePolicySaga)).Step("a", "h").Build()
+	require.NoError(t, err)
+	assert.False(t, def.Definition.IsPartialSuccess())
+
+	_, err = NewBuilder("wf", 1, WithFailurePolicy("unknown")).Step("a", "h").Build()
+	require.Error(t, err)
+
+	_, err = NewBuilder("wf", 1, WithFailurePolicy(FailurePolicyPartialSuccess), WithDLQEnabled(true)).
+		Step("a", "h").
+		Build()
+	require.Error(t, err)
 }
