@@ -50,6 +50,19 @@ func runPartialWorkflow(
 	t.Helper()
 
 	store := NewMemoryStore()
+	engine, res := runWorkflowOnStore(t, store, def, handlers...)
+
+	return store, engine, res
+}
+
+func runWorkflowOnStore(
+	t *testing.T,
+	store Store,
+	def *WorkflowDefinition,
+	handlers ...StepHandler,
+) (*Engine, *StartAwaitResult) {
+	t.Helper()
+
 	engine := NewEngine(nil,
 		WithEngineStore(store),
 		WithEngineTxManager(NewMemoryTxManager()),
@@ -72,10 +85,10 @@ func runPartialWorkflow(
 	res, err := engine.StartAwait(ctx, def.ID, json.RawMessage(`{"count":1}`))
 	require.NoError(t, err)
 
-	return store, engine, res
+	return engine, res
 }
 
-func partialStepsByName(t *testing.T, store *MemoryStore, instanceID int64) map[string]WorkflowStep {
+func partialStepsByName(t *testing.T, store Store, instanceID int64) map[string]WorkflowStep {
 	t.Helper()
 
 	steps, err := store.GetStepsByInstance(context.Background(), instanceID)

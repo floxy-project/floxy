@@ -1392,30 +1392,6 @@ func (engine *Engine) executeFork(
 		return nil, fmt.Errorf("get workflow definition: %w", err)
 	}
 
-	for _, parallelStepName := range stepDef.Parallel {
-		parallelStepDef, ok := def.Definition.Steps[parallelStepName]
-		if !ok {
-			return nil, fmt.Errorf("parallel step definition not found: %s", parallelStepName)
-		}
-
-		parallelStep := &WorkflowStep{
-			InstanceID: instance.ID,
-			StepName:   parallelStepName,
-			StepType:   parallelStepDef.Type,
-			Status:     StepStatusPending,
-			Input:      step.Input,
-			MaxRetries: parallelStepDef.MaxRetries,
-		}
-
-		if err := engine.store.CreateStep(ctx, parallelStep); err != nil {
-			return nil, fmt.Errorf("create fork step %s: %w", parallelStepName, err)
-		}
-
-		if err := engine.store.EnqueueStep(ctx, instance.ID, &parallelStep.ID, PriorityNormal, parallelStepDef.Delay); err != nil {
-			return nil, fmt.Errorf("enqueue fork step %s: %w", parallelStepName, err)
-		}
-	}
-
 	for _, nextStepName := range stepDef.Next {
 		nextStepDef, ok := def.Definition.Steps[nextStepName]
 
@@ -1440,6 +1416,30 @@ func (engine *Engine) executeFork(
 				KeyWaitingFor: waitFor,
 				KeyStrategy:   strategy,
 			})
+		}
+	}
+
+	for _, parallelStepName := range stepDef.Parallel {
+		parallelStepDef, ok := def.Definition.Steps[parallelStepName]
+		if !ok {
+			return nil, fmt.Errorf("parallel step definition not found: %s", parallelStepName)
+		}
+
+		parallelStep := &WorkflowStep{
+			InstanceID: instance.ID,
+			StepName:   parallelStepName,
+			StepType:   parallelStepDef.Type,
+			Status:     StepStatusPending,
+			Input:      step.Input,
+			MaxRetries: parallelStepDef.MaxRetries,
+		}
+
+		if err := engine.store.CreateStep(ctx, parallelStep); err != nil {
+			return nil, fmt.Errorf("create fork step %s: %w", parallelStepName, err)
+		}
+
+		if err := engine.store.EnqueueStep(ctx, instance.ID, &parallelStep.ID, PriorityNormal, parallelStepDef.Delay); err != nil {
+			return nil, fmt.Errorf("enqueue fork step %s: %w", parallelStepName, err)
 		}
 	}
 
@@ -1805,6 +1805,10 @@ func (engine *Engine) handleStepSuccess(
 	}
 
 	if (next && len(stepDef.Next) == 0) || (!next && stepDef.Else == "") {
+		if engine.isBranchTerminalAwaitingJoin(ctx, instance.ID, step.StepName, def) {
+			return nil
+		}
+
 		if !engine.hasUnfinishedSteps(ctx, instance.ID) && !engine.hasStepsAwaitingRetry(ctx, instance.ID) {
 			return engine.completeWorkflow(ctx, instance, output)
 		}
@@ -2384,6 +2388,26 @@ func (engine *Engine) hasUnfinishedSteps(ctx context.Context, instanceID int64) 
 	}
 
 	return false
+}
+
+func (engine *Engine) isBranchTerminalAwaitingJoin(
+	ctx context.Context,
+	instanceID int64,
+	stepName string,
+	def *WorkflowDefinition,
+) bool {
+	if def == nil || engine.findForkStepForStepInBranch(stepName, def) == "" {
+		return false
+	}
+
+	joinStepName, err := engine.findJoinStepForForkBranch(ctx, instanceID, stepName, def)
+	if err != nil || joinStepName == "" || joinStepName == stepName {
+		return false
+	}
+
+	instance, err := engine.store.GetInstance(ctx, instanceID)
+
+	return err == nil && instance.Status == StatusRunning
 }
 
 func (engine *Engine) hasStepsAwaitingRetry(ctx context.Context, instanceID int64) bool {
