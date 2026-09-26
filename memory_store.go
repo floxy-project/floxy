@@ -475,9 +475,20 @@ func (s *MemoryStore) CreateJoinState(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.createJoinStateLocked(instanceID, joinStepName, waitingFor, strategy)
+
+	return nil
+}
+
+func (s *MemoryStore) createJoinStateLocked(
+	instanceID int64,
+	joinStepName string,
+	waitingFor []string,
+	strategy JoinStrategy,
+) {
 	key := s.joinStateKey(instanceID, joinStepName)
 	if _, exists := s.joinStates[key]; exists {
-		return nil
+		return
 	}
 
 	if strategy == "" {
@@ -488,7 +499,7 @@ func (s *MemoryStore) CreateJoinState(
 	state := &JoinState{
 		InstanceID:   instanceID,
 		JoinStepName: joinStepName,
-		WaitingFor:   waitingFor,
+		WaitingFor:   append([]string(nil), waitingFor...),
 		Completed:    []string{},
 		Failed:       []string{},
 		JoinStrategy: strategy,
@@ -498,8 +509,6 @@ func (s *MemoryStore) CreateJoinState(
 	}
 
 	s.joinStates[key] = state
-
-	return nil
 }
 
 func (s *MemoryStore) UpdateJoinState(
@@ -604,7 +613,9 @@ func (s *MemoryStore) ReplaceInJoinWaitFor(ctx context.Context, instanceID int64
 	state, exists := s.joinStates[key]
 
 	if !exists {
-		return s.CreateJoinState(ctx, instanceID, joinStepName, []string{realStep}, JoinStrategyAll)
+		s.createJoinStateLocked(instanceID, joinStepName, []string{realStep}, JoinStrategyAll)
+
+		return nil
 	}
 
 	found := false
